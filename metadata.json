@@ -1,0 +1,8 @@
+{
+  "name": "MigoPortal",
+  "description": "Smart travel and expense management for LLCs, powered by Gemini AI for automated receipt parsing and travel assistance.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
