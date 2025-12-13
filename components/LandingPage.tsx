@@ -73,13 +73,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) => {
       <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 text-sm font-medium mb-6 animate-fade-in">
           <Star size={14} className="fill-indigo-600 dark:fill-indigo-300" />
-          <span>New: AI-Powered Employee Portal</span>
+          <span>All-in-one Employee Portal</span>
         </div>
         <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-indigo-800 to-slate-900 dark:from-white dark:via-indigo-200 dark:to-white animate-fade-in">
           All-in-One Employee <br className="hidden md:block"/> Experience Platform
         </h1>
         <p className="text-lg md:text-xl text-slate-600 dark:text-slate-400 max-w-2xl mx-auto mb-10 animate-fade-in">
-          Manage expenses, travel, time, hiring, and company culture in one unified portal powered by Gemini AI.
+          Manage expenses, travel, time, hiring, and company culture in one unified portal.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-fade-in">
           <button 
