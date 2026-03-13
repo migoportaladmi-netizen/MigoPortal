@@ -1,8 +1,45 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
+import {
+    LayoutDashboard, Receipt, Map as MapIcon, Plus, Search, Bell, Settings, MoreVertical, Calendar,
+    DollarSign, Plane, FileText, X, Loader2, MapPin, Briefcase, ShieldCheck, ShieldAlert, Menu,
+    Moon, Sun, Pencil, Trash2, Download, User, Mail, Phone, Shield, Lock, LogOut, Save, Check,
+    ChevronDown, Camera, ArrowRight, Eye, EyeOff, ArrowLeft, UserCog, UserCheck, Users, Clock,
+    CalendarDays, Timer, CheckCircle2, XCircle, BriefcaseBusiness, Award, Heart, Star, ThumbsUp,
+    ClipboardList, BarChart2, Upload, File, UserPlus, Building2, Copy, CreditCard, ThumbsDown,
+    Minus, Send, UserMinus, MessageSquare, ArrowUpRight, Info, AlertTriangle, FileStack,
+    BookTemplate, Target, Globe, LockKeyhole
+} from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
+
+import {
+    ViewState, UserProfile, AbsenceType, Goal
+} from './types.ts';
+import {
+    MOCK_USERS, MOCK_COMPANY
+} from './constants.ts';
+import { generateExpensesPDF, generateItineraryPDF } from './services/pdfService';
+
+// Components
+import DashboardStats from './components/DashboardStats.tsx';
+import ReceiptUploader from './components/ReceiptUploader.tsx';
+import LandingPage from './components/LandingPage.tsx';
+import AuthScreen from './components/Auth/AuthScreen.tsx';
+import ConfirmationModal from './components/Modals/ConfirmationModal.tsx';
+import MarkdownRenderer from './components/MarkdownRenderer';
+
+// Hooks
+import { useAppTheme } from './hooks/useAppTheme';
+import { useAppAuth } from './hooks/useAppAuth';
+import { useAppModals } from './hooks/useAppModals';
+import { useAppData } from './hooks/useAppData';
+
+// Lazy loaded features
 const Dashboard = React.lazy(() => import('./features/Dashboard/Dashboard'));
 const Expenses = React.lazy(() => import('./features/Expenses/Expenses'));
 const Trips = React.lazy(() => import('./features/Trips/Trips'));
 const TimeAndAbsence = React.lazy(() => import('./features/TimeAndAbsence/TimeAndAbsence'));
+const Attendance = React.lazy(() => import('./features/Attendance/Attendance'));
+const Absence = React.lazy(() => import('./features/Absence/Absence'));
 const MyTeam = React.lazy(() => import('./features/MyTeam/MyTeam'));
 const Goals = React.lazy(() => import('./features/Goals/Goals'));
 const Jobs = React.lazy(() => import('./features/Jobs/Jobs'));
@@ -13,1295 +50,67 @@ const Recruitment = React.lazy(() => import('./features/Recruitment/Recruitment'
 const ManageTeam = React.lazy(() => import('./features/Admin/ManageTeam'));
 const CompanySettings = React.lazy(() => import('./features/Admin/CompanySettings'));
 const SettingsView = React.lazy(() => import('./features/Admin/Settings'));
-import {
-    LayoutDashboard,
-    Receipt,
-    Map as MapIcon,
-    Plus,
-    Search,
-    Bell,
-    Settings,
-    MoreVertical,
-    Calendar,
-    DollarSign,
-    Plane,
-    FileText,
-    X,
-    Loader2,
-    MapPin,
-    Briefcase,
-    ShieldCheck,
-    ShieldAlert,
-    Menu,
-    Moon,
-    Sun,
-    Pencil,
-    Trash2,
-    Download,
-    User,
-    Mail,
-    Phone,
-    Shield,
-    Lock,
-    LogOut,
-    Save,
-    Check,
-    ChevronDown,
-    Camera,
-    ArrowRight,
-    Eye,
-    EyeOff,
-    ArrowLeft,
-    UserCog,
-    UserCheck,
-    Users,
-    Clock,
-    CalendarDays,
-    Timer,
-    CheckCircle2,
-    XCircle,
-    BriefcaseBusiness,
-    Award,
-    Heart,
-    Star,
-    ThumbsUp,
-    ClipboardList,
-    BarChart2,
-    Upload,
-    File,
-    UserPlus,
-    Building2,
-    Copy,
-    CreditCard,
-    ThumbsDown,
-    Minus,
-    Send,
-    UserMinus,
-    MessageSquare,
-    ArrowUpRight,
-    Info,
-    AlertTriangle,
-    FileStack,
-    BookTemplate,
-    Target,
-    Globe,
-    LockKeyhole
-} from 'lucide-react';
-import { v4 as uuidv4 } from 'uuid';
-import MarkdownRenderer from './components/MarkdownRenderer';
+const Payroll = React.lazy(() => import('./features/Payroll/Payroll'));
 
-import { Expense, ExpenseCategory, ViewState, ReceiptAnalysisResult, Trip, UserProfile, Budget, TimeEntry, AbsenceRequest, AbsenceType, Job, JobApplication, Praise, Survey, SurveyResponse, SurveyQuestion, EmployeeDocument, Company, InterviewFeedback, InterviewSentiment, AppNotification, EmployeeReview, ReviewTemplate, Goal } from './types.ts';
-import { INITIAL_EXPENSES, MOCK_TRIPS, MOCK_USERS, MOCK_TIME_ENTRIES, MOCK_ABSENCE_REQUESTS, MOCK_JOBS, MOCK_APPLICATIONS, MOCK_PRAISE, MOCK_SURVEYS, MOCK_SURVEY_RESPONSES, MOCK_COMPANY, MOCK_NOTIFICATIONS, MOCK_REVIEWS, MOCK_REVIEW_TEMPLATES, ROLE_BASED_QUESTIONS, MOCK_GOALS } from './constants.ts';
-import DashboardStats from './components/DashboardStats.tsx';
-import ReceiptUploader from './components/ReceiptUploader.tsx';
-import LandingPage from './components/LandingPage.tsx';
-import { generateItinerary } from './services/geminiService.ts';
-import { generateExpensesPDF, generateItineraryPDF } from './services/pdfService.ts';
-import ChatMode from './components/ChatMode';
-import LiveMode from './components/LiveMode';
-import Assistant from './components/Assistant';
-
-// --- Auth Component ---
-interface AuthScreenProps {
-    onLogin: (user: UserProfile) => void;
-    onBack: () => void;
-    availableUsers: UserProfile[];
-    company: Company;
-    initialIsSignUp?: boolean;
-}
-
-const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onBack, availableUsers, company, initialIsSignUp = false }) => {
-    const [isSignUp, setIsSignUp] = useState(initialIsSignUp);
-    const [showPassword, setShowPassword] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const [inviteCode, setInviteCode] = useState('');
-    const [formData, setFormData] = useState({
-        name: '',
-        email: '',
-        password: '',
-        role: 'User',
-    });
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsLoading(true);
-
-        setTimeout(() => {
-            const parts = (isSignUp ? formData.name : 'John Doe').split(' ');
-            const initials = parts.length > 1 ? parts[0][0] + parts[1][0] : parts[0][0];
-
-            let assignedCompanyId: string | undefined = undefined;
-
-            if (isSignUp) {
-                if (inviteCode === company.inviteCode) {
-                    assignedCompanyId = company.id;
-                } else if (inviteCode) {
-                    alert("Invalid invite code");
-                    setIsLoading(false);
-                    return;
-                }
-            }
-
-            const userProfile: UserProfile = {
-                name: isSignUp ? formData.name : 'John Doe',
-                email: formData.email,
-                role: isSignUp ? formData.role : 'Administrator',
-                phone: '',
-                avatarInitials: initials.toUpperCase(),
-                companyId: isSignUp ? assignedCompanyId : availableUsers.find(u => u.email === formData.email)?.companyId,
-                status: 'Active'
-            };
-
-            onLogin(userProfile);
-            setIsLoading(false);
-        }, 1500);
-    };
-
-    const handleQuickLogin = (email: string) => {
-        setIsLoading(true);
-        const foundUser = availableUsers.find(u => u.email === email);
-
-        setTimeout(() => {
-            if (foundUser) {
-                onLogin(foundUser);
-            } else {
-                onLogin(MOCK_USERS[0]);
-            }
-            setIsLoading(false);
-        }, 800);
-    };
-
-    return (
-        <div className="min-h-dvh flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4 transition-colors duration-300">
-            <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-fade-in relative">
-                <button
-                    onClick={onBack}
-                    className="absolute top-4 left-4 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-                >
-                    <ArrowLeft size={20} />
-                </button>
-
-                <div className="p-8 pb-0 text-center">
-                    <div className="w-16 h-16 bg-indigo-600 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-none mb-6">
-                        <span className="text-white text-3xl font-bold">M</span>
-                    </div>
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-                        {isSignUp ? 'Create Account' : 'Welcome Back'}
-                    </h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm">
-                        {isSignUp ? 'Join MigoPortal for smart expense management' : 'Sign in to manage your LLC travel & expenses'}
-                    </p>
-                </div>
-
-                <div className="px-8 mt-6">
-                    <p className="text-xs font-semibold text-slate-400 text-center mb-3 uppercase tracking-wider">Quick Demo Login</p>
-                    <div className="grid grid-cols-2 gap-3">
-                        <button onClick={() => handleQuickLogin('admin@migoportal.com')} className="p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900 rounded-xl text-xs font-bold hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors flex flex-col items-center">
-                            <UserCog size={20} className="mb-1" />
-                            Login as Admin
-                        </button>
-                        <button onClick={() => handleQuickLogin('bob@migoportal.com')} className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-900 rounded-xl text-xs font-bold hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors flex flex-col items-center">
-                            <UserCheck size={20} className="mb-1" />
-                            Login as User
-                        </button>
-                    </div>
-                    <div className="relative my-6">
-                        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200 dark:border-slate-800"></div></div>
-                        <div className="relative flex justify-center text-xs uppercase"><span className="bg-white dark:bg-slate-900 px-2 text-slate-400">Or continue with email</span></div>
-                    </div>
-                </div>
-
-                <form onSubmit={handleSubmit} className="px-8 pb-8 space-y-5">
-                    {isSignUp && (
-                        <div className="space-y-2 animate-fade-in">
-                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Company Invite Code (Optional)</label>
-                            <div className="relative">
-                                <Building2 size={18} className="absolute left-3 top-3 text-slate-400" />
-                                <input
-                                    type="text"
-                                    placeholder="Enter code (e.g. TECH-2024)"
-                                    className="w-full pl-10 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-white"
-                                    value={inviteCode}
-                                    onChange={e => setInviteCode(e.target.value)}
-                                />
-                            </div>
-                            <p className="text-xs text-slate-400">Use code <b>{company.inviteCode}</b> to join {company.name}</p>
-                        </div>
-                    )}
-
-                    {isSignUp && (
-                        <div className="space-y-2 animate-fade-in">
-                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Full Name</label>
-                            <div className="relative">
-                                <User size={18} className="absolute left-3 top-3 text-slate-400" />
-                                <input
-                                    type="text"
-                                    required
-                                    placeholder="John Doe"
-                                    className="w-full pl-10 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-white"
-                                    value={formData.name}
-                                    onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Email Address</label>
-                        <div className="relative">
-                            <Mail size={18} className="absolute left-3 top-3 text-slate-400" />
-                            <input
-                                type="email"
-                                required
-                                placeholder="you@company.com"
-                                className="w-full pl-10 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-white"
-                                value={formData.email}
-                                onChange={e => setFormData({ ...formData, email: e.target.value })}
-                            />
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Password</label>
-                        <div className="relative">
-                            <Lock size={18} className="absolute left-3 top-3 text-slate-400" />
-                            <input
-                                type={showPassword ? "text" : "password"}
-                                required
-                                placeholder="••••••••"
-                                className="w-full pl-10 pr-10 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-white"
-                                value={formData.password}
-                                onChange={e => setFormData({ ...formData, password: e.target.value })}
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                            >
-                                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                            </button>
-                        </div>
-                    </div>
-
-                    {isSignUp && (
-                        <div className="space-y-2 animate-fade-in">
-                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Account Type</label>
-                            <div className="grid grid-cols-2 gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData({ ...formData, role: 'User' })}
-                                    className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-2 transition-all
-                      ${formData.role === 'User'
-                                            ? 'bg-indigo-50 border-indigo-500 text-indigo-700 dark:bg-indigo-900/20 dark:border-indigo-400 dark:text-indigo-300'
-                                            : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'}
-                    `}
-                                >
-                                    <User size={24} />
-                                    <span className="text-xs font-semibold">Normal User</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData({ ...formData, role: 'Administrator' })}
-                                    className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-2 transition-all
-                      ${formData.role === 'Administrator'
-                                            ? 'bg-indigo-50 border-indigo-500 text-indigo-700 dark:bg-indigo-900/20 dark:border-indigo-400 dark:text-indigo-300'
-                                            : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'}
-                    `}
-                                >
-                                    <ShieldCheck size={24} />
-                                    <span className="text-xs font-semibold">Administrator</span>
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    <button
-                        type="submit"
-                        disabled={isLoading}
-                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 transition-all flex justify-center items-center"
-                    >
-                        {isLoading ? <Loader2 className="animate-spin" /> : (isSignUp ? 'Create Account' : 'Sign In')}
-                    </button>
-
-                    <p className="text-center text-sm text-slate-500 dark:text-slate-400">
-                        {isSignUp ? 'Already have an account?' : 'Don\'t have an account?'}
-                        <button
-                            type="button"
-                            onClick={() => setIsSignUp(!isSignUp)}
-                            className="ml-2 text-indigo-600 dark:text-indigo-400 font-semibold hover:underline"
-                        >
-                            {isSignUp ? 'Log in' : 'Sign up'}
-                        </button>
-                    </p>
-                </form>
-            </div>
-        </div>
-    );
-};
-
-// --- Confirmation Modal Component ---
-interface ConfirmationModalProps {
-    isOpen: boolean;
-    title: string;
-    message: string;
-    confirmText?: string;
-    cancelText?: string;
-    isDestructive?: boolean;
-    onConfirm: () => void;
-    onCancel: () => void;
-}
-
-const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
-    isOpen, title, message, confirmText = "Confirm", cancelText = "Cancel", isDestructive = false, onConfirm, onCancel
-}) => {
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-200 dark:border-slate-800 scale-100 transition-all">
-                <div className="p-6 text-center">
-                    <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-4 ${isDestructive ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' : 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400'}`}>
-                        {isDestructive ? <ShieldAlert size={24} /> : <ShieldCheck size={24} />}
-                    </div>
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{title}</h3>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm">{message}</p>
-                </div>
-                <div className="flex border-t border-slate-100 dark:border-slate-800">
-                    <button onClick={onCancel} className="flex-1 py-3 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
-                        {cancelText}
-                    </button>
-                    <div className="w-[1px] bg-slate-100 dark:bg-slate-800"></div>
-                    <button onClick={onConfirm} className={`flex-1 py-3 text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${isDestructive ? 'text-red-600 dark:text-red-400' : 'text-indigo-600 dark:text-indigo-400'}`}>
-                        {confirmText}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-
-// --- Main App Component ---
 export default function App() {
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [showLandingPage, setShowLandingPage] = useState(true);
-    const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
     const [view, setView] = useState<ViewState>('dashboard');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [isDarkMode, setIsDarkMode] = useState(false);
 
-    // Data State
-    const [expenses, setExpenses] = useState<Expense[]>(INITIAL_EXPENSES);
-    const [trips, setTrips] = useState<Trip[]>(MOCK_TRIPS);
-    const [allUsers, setAllUsers] = useState<UserProfile[]>(MOCK_USERS);
-    const [user, setUser] = useState<UserProfile>(MOCK_USERS[1]); // Default to Bob
-    const [timeEntries, setTimeEntries] = useState<TimeEntry[]>(MOCK_TIME_ENTRIES);
-    const [absenceRequests, setAbsenceRequests] = useState<AbsenceRequest[]>(MOCK_ABSENCE_REQUESTS);
-    const [jobs, setJobs] = useState<Job[]>(MOCK_JOBS);
-    const [applications, setApplications] = useState<JobApplication[]>(MOCK_APPLICATIONS);
-    const [praiseList, setPraiseList] = useState<Praise[]>(MOCK_PRAISE);
-    const [surveys, setSurveys] = useState<Survey[]>(MOCK_SURVEYS);
-    const [surveyResponses, setSurveyResponses] = useState<SurveyResponse[]>(MOCK_SURVEY_RESPONSES);
-    const [reviews, setReviews] = useState<EmployeeReview[]>(MOCK_REVIEWS);
-    const [reviewTemplates, setReviewTemplates] = useState<ReviewTemplate[]>(MOCK_REVIEW_TEMPLATES);
-    const [goals, setGoals] = useState<Goal[]>(MOCK_GOALS);
+    // Custom Hooks
+    const { isDarkMode, toggleTheme } = useAppTheme();
+    const {
+        isAuthenticated, showLandingPage, authMode, user, setUser,
+        handleLogin, handleLogout, navigateToAuth, handleBackToLanding
+    } = useAppAuth(MOCK_COMPANY);
+    const modals = useAppModals();
+    const data = useAppData(user, setUser);
 
-    // Notification State
-    const [notifications, setNotifications] = useState<AppNotification[]>(MOCK_NOTIFICATIONS);
-    const [visibleNotificationsCount, setVisibleNotificationsCount] = useState(10);
+    // Filter Absence/Time Requests for Managers/Admins
+    const myTeam = data.allUsers.filter(u => u.employment?.managerEmail === user.email);
+    const isManager = myTeam.length > 0 || user.role === 'Administrator';
 
-    // Company Data State
-    const [currentCompany, setCurrentCompany] = useState<Company>(MOCK_COMPANY);
-    const [seatCount, setSeatCount] = useState(2); // Subscription seat count
+    const teamAbsenceRequests = user.role === 'Administrator'
+        ? data.absenceRequests
+        : data.absenceRequests.filter(req => myTeam.some(member => member.email === req.userId));
 
-    // Pagination State
-    const [visibleExpensesCount, setVisibleExpensesCount] = useState(10);
-    const [visibleTripsCount, setVisibleTripsCount] = useState(10);
+    const teamTimeEntries = user.role === 'Administrator'
+        ? data.timeEntries
+        : data.timeEntries.filter(entry => myTeam.some(member => member.email === entry.userId));
 
-    // Modal States
-    const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
-    const [expenseEntryMode, setExpenseEntryMode] = useState<'scan' | 'manual'>('scan');
-    const [newManualExpense, setNewManualExpense] = useState<Partial<Expense>>({
-        date: new Date().toISOString().split('T')[0],
-        currency: 'USD',
-        category: ExpenseCategory.OTHER,
-        merchant: '',
-        amount: 0,
-        description: ''
-    });
+    // Handle authentication screens
+    if (!showLandingPage && !isAuthenticated) {
+        return <AuthScreen
+            onLogin={handleLogin}
+            onBack={handleBackToLanding}
+            availableUsers={MOCK_USERS}
+            company={MOCK_COMPANY}
+            initialIsSignUp={authMode === 'signup'}
+        />;
+    }
 
-    const [isTripModalOpen, setIsTripModalOpen] = useState(false);
-    const [isItineraryModalOpen, setIsItineraryModalOpen] = useState(false);
-    const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
-    const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
-    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    if (showLandingPage) {
+        return <LandingPage onNavigateToAuth={navigateToAuth} />;
+    }
 
-    // Time & Absence States
-    const [activeTimeAbsenceTab, setActiveTimeAbsenceTab] = useState<'time' | 'absence'>('time');
-    const [timeAbsenceViewMode, setTimeAbsenceViewMode] = useState<'personal' | 'team'>('personal');
-    const [isTimeModalOpen, setIsTimeModalOpen] = useState(false);
-    const [isAbsenceModalOpen, setIsAbsenceModalOpen] = useState(false);
-    const [newTimeEntry, setNewTimeEntry] = useState<Partial<TimeEntry>>({ date: new Date().toISOString().split('T')[0], startTime: '09:00', endTime: '17:00', description: '', breakMinutes: 0 });
-    const [newAbsence, setNewAbsence] = useState<Partial<AbsenceRequest>>({ startDate: new Date().toISOString().split('T')[0], endDate: new Date().toISOString().split('T')[0], type: AbsenceType.VACATION, reason: '' });
-
-    // Job Portal States
-    const [isJobModalOpen, setIsJobModalOpen] = useState(false);
-    const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false);
-    const [selectedJobForApplication, setSelectedJobForApplication] = useState<Job | null>(null);
-    const [newJob, setNewJob] = useState<Partial<Job>>({ title: '', department: '', location: '', type: 'Full-time', salaryRange: '', description: '', status: 'Open' });
-    const [editingJobId, setEditingJobId] = useState<string | null>(null);
-    const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
-    const [selectedJobToApply, setSelectedJobToApply] = useState<Job | null>(null);
-    const [applicationNote, setApplicationNote] = useState('');
-    const [applicationCv, setApplicationCv] = useState<{ name: string, data: string } | null>(null);
-
-    // Recruitment States (Interview & Decisions)
-    const [activeRecruitmentTab, setActiveRecruitmentTab] = useState<'candidates' | 'interviews'>('candidates');
-    const [isAssignInterviewerModalOpen, setIsAssignInterviewerModalOpen] = useState(false);
-    const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
-    const [isDecisionModalOpen, setIsDecisionModalOpen] = useState(false);
-    const [selectedApplication, setSelectedApplication] = useState<JobApplication | null>(null);
-    const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
-    const [feedbackForm, setFeedbackForm] = useState<{ notes: string; sentiment: InterviewSentiment }>({ notes: '', sentiment: 'Neutral' });
-    const [decisionForm, setDecisionForm] = useState<{ status: 'Hired' | 'Rejected', feedback: string }>({ status: 'Hired', feedback: '' });
-    const [newInterview, setNewInterview] = useState<{
-        date: string;
-        time: string;
-        interviewerEmail: string;
-    }>({ date: '', time: '', interviewerEmail: '' });
-
-    // Praise States
-    const [isPraiseModalOpen, setIsPraiseModalOpen] = useState(false);
-    const [newPraise, setNewPraise] = useState<{
-        toUserEmail: string;
-        message: string;
-        category: Praise['category'];
-    }>({ toUserEmail: '', message: '', category: 'Teamwork' });
-
-    // Survey States
-    const [isCreateSurveyModalOpen, setIsCreateSurveyModalOpen] = useState(false);
-    const [isTakeSurveyModalOpen, setIsTakeSurveyModalOpen] = useState(false);
-    const [isSurveyResultsModalOpen, setIsSurveyResultsModalOpen] = useState(false);
-    const [selectedSurvey, setSelectedSurvey] = useState<Survey | null>(null);
-    const [newSurvey, setNewSurvey] = useState<{
-        title: string;
-        description: string;
-        questions: { id: string; text: string; type: 'rating' | 'text' }[];
-    }>({ title: '', description: '', questions: [{ id: uuidv4(), text: '', type: 'rating' }] });
-    const [surveyAnswers, setSurveyAnswers] = useState<Record<string, string | number>>({});
-
-    // Employee Review State
-    const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
-    const [selectedReview, setSelectedReview] = useState<EmployeeReview | null>(null);
-    const [activeReviewTab, setActiveReviewTab] = useState<'my-reviews' | 'team-reviews'>('my-reviews');
-    const [reviewForm, setReviewForm] = useState<{ text: string; rating: number }>({ text: '', rating: 0 });
-    const [reviewResponses, setReviewResponses] = useState<Record<string, string>>({}); // Keyed by question text for simplicity
-    const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-    const [isStartCycleModalOpen, setIsStartCycleModalOpen] = useState(false);
-    const [newTemplate, setNewTemplate] = useState<{ name: string; role: string; questions: string[] }>({ name: '', role: 'Software Engineer', questions: [] });
-    const [startCycleForm, setStartCycleForm] = useState({ period: '', templateId: '' });
-
-    // Goal State
-    const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
-    const [newGoal, setNewGoal] = useState<Partial<Goal>>({ title: '', description: '', type: 'Business', visibility: 'Manager', status: 'Not Started', dueDate: '' });
-
-    // Password Reset State
-    const [isResetPasswordModalOpen, setIsResetPasswordModalOpen] = useState(false);
-    const [resetPasswordForm, setResetPasswordForm] = useState({ current: '', new: '', confirm: '' });
-
-    // Team Management State
-    const [isManageTeamModalOpen, setIsManageTeamModalOpen] = useState(false);
-    const [manageTeamMode, setManageTeamMode] = useState<'assign_manager' | 'add_member'>('assign_manager');
-    const [selectedTeamMember, setSelectedTeamMember] = useState<UserProfile | null>(null);
-    const [newManagerEmail, setNewManagerEmail] = useState('');
-    const [newTeamMemberEmail, setNewTeamMemberEmail] = useState('');
-    const [isInviteUserModalOpen, setIsInviteUserModalOpen] = useState(false);
-    const [inviteForm, setInviteForm] = useState({ name: '', email: '', role: 'User', department: '', jobTitle: '' });
-
-    // Team Member Profile Modal
-    const [isTeamMemberProfileModalOpen, setIsTeamMemberProfileModalOpen] = useState(false);
-    const [selectedTeamMemberProfile, setSelectedTeamMemberProfile] = useState<UserProfile | null>(null);
-
-
-    // Documents Upload State
-    const [isDocumentUploadModalOpen, setIsDocumentUploadModalOpen] = useState(false);
-    const [newDocumentForm, setNewDocumentForm] = useState<{ name: string; category: EmployeeDocument['category'] }>({ name: '', category: 'Other' });
-    const [newDocumentFile, setNewDocumentFile] = useState<{ name: string, type: string, data: string } | null>(null);
-    const documentInputRef = useRef<HTMLInputElement>(null);
-
-    // Selection States
-    const [selectedTripForItinerary, setSelectedTripForItinerary] = useState<Trip | null>(null);
-    const [generatedItinerary, setGeneratedItinerary] = useState<string>('');
-    const [isGeneratingItinerary, setIsGeneratingItinerary] = useState(false);
-    const [editingTripId, setEditingTripId] = useState<string | null>(null);
-    const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
-
-    // Budget Management State
-    const [selectedUserForBudget, setSelectedUserForBudget] = useState<UserProfile | null>(null);
-    const [newBudget, setNewBudget] = useState<Partial<Budget>>({ amount: 0, period: 'Monthly' });
-
-    // Settings / Profile State
-    const [activeSettingsTab, setActiveSettingsTab] = useState<'personal' | 'employment' | 'compensation' | 'documents' | 'security'>('personal');
-    const [isEditingProfile, setIsEditingProfile] = useState(false);
-    const [editedUser, setEditedUser] = useState<UserProfile>(user);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const cvInputRef = useRef<HTMLInputElement>(null);
-    const [showSalary, setShowSalary] = useState(false);
-
-    // Confirmation Modal State
-    const [confirmationModal, setConfirmationModal] = useState<{
-        isOpen: boolean;
-        title: string;
-        message: string;
-        action: 'approve' | 'reject' | 'approve-absence' | 'reject-absence' | 'delete-job' | 'delete-survey' | 'remove-team-member' | 'hire-candidate' | 'reject-candidate' | 'logout' | 'approve-time' | 'reject-time' | 'delete-time-entry' | 'delete-absence-request' | 'delete-goal';
-        itemId: string | null;
-        isDestructive?: boolean;
-    }>({ isOpen: false, title: '', message: '', action: 'approve', itemId: null });
-
-    // New Trip Form State
-    const [newTrip, setNewTrip] = useState<Partial<Trip>>({
-        destination: '',
-        startDate: '',
-        endDate: '',
-        purpose: '',
-        budget: 0
-    });
-
-    // Dark Mode Init
-    useEffect(() => {
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            setIsDarkMode(true);
-            document.documentElement.classList.add('dark');
-        } else {
-            setIsDarkMode(false);
-            document.documentElement.classList.remove('dark');
-        }
-    }, []);
-
-    // Update user state when auth changes
-    useEffect(() => {
-        if (isAuthenticated) {
-            setEditedUser(user);
-            // Default to interviews tab for non-admins when entering recruitment
-            if (user.role !== 'Administrator') {
-                setActiveRecruitmentTab('interviews');
-            }
-        }
-    }, [isAuthenticated, user]);
-
-    // Reset expense modal mode when closed
-    useEffect(() => {
-        if (!isExpenseModalOpen) {
-            setExpenseEntryMode('scan');
-        }
-    }, [isExpenseModalOpen]);
-
-    // Scroll Lock for Modals
-    useEffect(() => {
-        const isAnyModalOpen = isExpenseModalOpen || isTripModalOpen || isItineraryModalOpen || isMobileMenuOpen || isBudgetModalOpen || isLogoutModalOpen || isDetailModalOpen || confirmationModal.isOpen || isTimeModalOpen || isAbsenceModalOpen || isJobModalOpen || isApplicationModalOpen || isPraiseModalOpen || isCreateSurveyModalOpen || isTakeSurveyModalOpen || isSurveyResultsModalOpen || isAssignInterviewerModalOpen || isFeedbackModalOpen || isDecisionModalOpen || isResetPasswordModalOpen || isApplyModalOpen || isManageTeamModalOpen || isInviteUserModalOpen || isDocumentUploadModalOpen || isTeamMemberProfileModalOpen || isReviewModalOpen || isTemplateModalOpen || isStartCycleModalOpen || isGoalModalOpen;
-        if (isAnyModalOpen) {
-            document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = '';
-        }
-        return () => { document.body.style.overflow = ''; };
-    }, [isExpenseModalOpen, isTripModalOpen, isItineraryModalOpen, isMobileMenuOpen, isBudgetModalOpen, isLogoutModalOpen, isDetailModalOpen, confirmationModal.isOpen, isTimeModalOpen, isAbsenceModalOpen, isJobModalOpen, isApplicationModalOpen, isPraiseModalOpen, isCreateSurveyModalOpen, isTakeSurveyModalOpen, isSurveyResultsModalOpen, isAssignInterviewerModalOpen, isFeedbackModalOpen, isDecisionModalOpen, isResetPasswordModalOpen, isApplyModalOpen, isManageTeamModalOpen, isInviteUserModalOpen, isDocumentUploadModalOpen, isTeamMemberProfileModalOpen, isReviewModalOpen, isTemplateModalOpen, isStartCycleModalOpen, isGoalModalOpen]);
-
-    const toggleTheme = () => {
-        if (isDarkMode) {
-            document.documentElement.classList.remove('dark');
-            localStorage.setItem('theme', 'light');
-            setIsDarkMode(false);
-        } else {
-            document.documentElement.classList.add('dark');
-            localStorage.setItem('theme', 'dark');
-            setIsDarkMode(true);
+    // Props bundle for feature components
+    const appProps = {
+        user, ...data, ...modals,
+        setView, myTeam, isManager, teamAbsenceRequests, teamTimeEntries,
+        isDarkMode, toggleTheme, isMobileMenuOpen, setIsMobileMenuOpen,
+        currentCompany: MOCK_COMPANY,
+        generateExpensesPDF, generateItineraryPDF,
+        handleOpenAddTeamMember: () => {
+            modals.setInviteForm({ name: '', email: '', role: 'Employee', jobTitle: '', department: '' });
+            modals.setIsInviteUserModalOpen(true);
+        },
+        handleConfirmationAction: () => {
+            // We'll call the actual handler in the ConfirmationModal onConfirm
         }
     };
 
-    const calculateLeaveBalance = (type: AbsenceType) => {
-        const approvedRequests = absenceRequests.filter(req => req.userId === user.email && req.status === 'Approved' && req.type === type);
-        let daysUsed = 0;
-        approvedRequests.forEach(req => {
-            const start = new Date(req.startDate);
-            const end = new Date(req.endDate);
-            const diffTime = Math.abs(end.getTime() - start.getTime());
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-            daysUsed += diffDays;
-        });
-        return daysUsed;
-    };
-
-    const handleReceiptAnalysis = (data: ReceiptAnalysisResult, imageUrl: string) => {
-        const newExpense: Expense = {
-            id: uuidv4(),
-            merchant: data.merchant,
-            amount: data.amount,
-            currency: data.currency,
-            date: data.date,
-            category: data.category || ExpenseCategory.OTHER,
-            description: data.description || 'Receipt Scan',
-            receiptUrl: imageUrl,
-            status: 'Pending',
-            taxDeductibility: data.taxDeductibility,
-            taxReasoning: data.taxReasoning,
-            submittedBy: user.name,
-            companyId: user.companyId || ''
-        };
-        setExpenses(prev => [newExpense, ...prev]);
-    };
-
-    const handleSaveManualExpense = () => {
-        if (!newManualExpense.merchant || !newManualExpense.amount) return;
-
-        const expense: Expense = {
-            id: uuidv4(),
-            merchant: newManualExpense.merchant,
-            amount: Number(newManualExpense.amount),
-            currency: newManualExpense.currency || 'USD',
-            date: newManualExpense.date || new Date().toISOString().split('T')[0],
-            category: newManualExpense.category || ExpenseCategory.OTHER,
-            description: newManualExpense.description || 'Manual Entry',
-            status: 'Pending',
-            taxDeductibility: 'Partial',
-            submittedBy: user.name,
-            companyId: user.companyId || ''
-        };
-
-        setExpenses(prev => [expense, ...prev]);
-        setIsExpenseModalOpen(false);
-    };
-
-    const handleCvChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setApplicationCv({
-                    name: file.name,
-                    data: reader.result as string
-                });
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-
-    const handleInitiateApply = (job: Job) => {
-        setSelectedJobToApply(job);
-        setApplicationNote('');
-        setApplicationCv(null);
-        setIsApplyModalOpen(true);
-    };
-
-    const handleConfirmApply = () => {
-        if (!selectedJobToApply) return;
-        const newApp: JobApplication = {
-            id: uuidv4(),
-            jobId: selectedJobToApply.id,
-            applicantName: user.name,
-            applicantEmail: user.email,
-            appliedDate: new Date().toISOString().split('T')[0],
-            status: 'Pending',
-            companyId: user.companyId || '',
-            reviews: [],
-            coverNote: applicationNote,
-            cvUrl: applicationCv?.data,
-            cvName: applicationCv?.name
-        };
-        setApplications(prev => [...prev, newApp]);
-        setIsApplyModalOpen(false);
-        alert("Application submitted successfully!");
-    };
-
-    const handleSaveTimeEntry = () => {
-        if (!newTimeEntry.startTime || !newTimeEntry.endTime) return;
-
-        const start = new Date(`2000-01-01T${newTimeEntry.startTime}`);
-        const end = new Date(`2000-01-01T${newTimeEntry.endTime}`);
-        let diff = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-
-        if (newTimeEntry.breakMinutes) {
-            diff -= (newTimeEntry.breakMinutes / 60);
-        }
-
-        if (diff < 0) diff += 24;
-
-        const entry: TimeEntry = {
-            id: uuidv4(),
-            date: newTimeEntry.date!,
-            startTime: newTimeEntry.startTime,
-            endTime: newTimeEntry.endTime,
-            description: newTimeEntry.description || '',
-            totalHours: Number(diff.toFixed(2)),
-            breakMinutes: newTimeEntry.breakMinutes || 0,
-            userId: user.email,
-            userName: user.name,
-            companyId: user.companyId || '',
-            status: 'Pending'
-        };
-
-        setTimeEntries(prev => [entry, ...prev]);
-        setIsTimeModalOpen(false);
-    };
-
-    const handleSaveAbsence = () => {
-        if (!newAbsence.startDate || !newAbsence.endDate) return;
-
-        const request: AbsenceRequest = {
-            id: uuidv4(),
-            startDate: newAbsence.startDate,
-            endDate: newAbsence.endDate,
-            type: newAbsence.type!,
-            reason: newAbsence.reason || '',
-            status: 'Pending',
-            userId: user.email,
-            userName: user.name,
-            companyId: user.companyId || ''
-        };
-
-        setAbsenceRequests(prev => [request, ...prev]);
-        setIsAbsenceModalOpen(false);
-    };
-
-    const handleSaveTeamAssignment = (employeeEmail: string, managerEmail: string) => {
-        setAllUsers(prev => prev.map(u => {
-            if (u.email === employeeEmail) {
-                const manager = prev.find(m => m.email === managerEmail);
-                return {
-                    ...u,
-                    employment: {
-                        ...(u.employment!),
-                        managerName: manager?.name,
-                        managerEmail: manager?.email
-                    }
-                };
-            }
-            return u;
-        }));
-        if (user.email === employeeEmail) {
-            const manager = allUsers.find(m => m.email === managerEmail);
-            setUser(prev => ({
-                ...prev,
-                employment: {
-                    ...(prev.employment!),
-                    managerName: manager?.name,
-                    managerEmail: manager?.email
-                }
-            }));
-        }
-        setIsManageTeamModalOpen(false);
-    };
-
-    const handleRemoveTeamMember = () => {
-        if (!confirmationModal.itemId) return;
-
-        setAllUsers(prev => prev.map(u => {
-            if (u.email === confirmationModal.itemId) {
-                return {
-                    ...u,
-                    employment: {
-                        ...(u.employment!),
-                        managerName: undefined,
-                        managerEmail: undefined
-                    }
-                };
-            }
-            return u;
-        }));
-        setConfirmationModal({ ...confirmationModal, isOpen: false });
-    };
-
-    const handleOpenAssignManager = (targetUser: UserProfile) => {
-        setSelectedTeamMember(targetUser);
-        setNewManagerEmail(targetUser.employment?.managerEmail || '');
-        setManageTeamMode('assign_manager');
-        setIsManageTeamModalOpen(true);
-    };
-
-    const handleOpenAddTeamMember = () => {
-        setManageTeamMode('add_member');
-        setNewTeamMemberEmail('');
-        setIsManageTeamModalOpen(true);
-    };
-
-    const handleSendInvite = () => {
-        if (!inviteForm.email || !inviteForm.name) return;
-
-        const initials = inviteForm.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-
-        const newUser: UserProfile = {
-            name: inviteForm.name,
-            email: inviteForm.email,
-            role: inviteForm.role,
-            phone: '',
-            avatarInitials: initials,
-            companyId: user.companyId,
-            status: 'Pending',
-            employment: {
-                jobTitle: inviteForm.jobTitle,
-                department: inviteForm.department,
-                startDate: new Date().toISOString().split('T')[0],
-                employmentType: 'Full-time',
-                location: 'Remote' // Default
-            }
-        };
-
-        setAllUsers(prev => [...prev, newUser]);
-        setIsInviteUserModalOpen(false);
-        setInviteForm({ name: '', email: '', role: 'User', department: '', jobTitle: '' });
-        alert(`Invitation sent to ${inviteForm.email}`);
-    };
-
-    const handleResetPassword = () => {
-        if (resetPasswordForm.new !== resetPasswordForm.confirm) {
-            alert("Passwords do not match");
-            return;
-        }
-        setTimeout(() => {
-            alert("Password updated successfully");
-            setIsResetPasswordModalOpen(false);
-            setResetPasswordForm({ current: '', new: '', confirm: '' });
-        }, 1000);
-    };
-
-    const handleSaveProfile = () => {
-        setUser(editedUser);
-        setAllUsers(prev => prev.map(u => u.email === user.email ? editedUser : u));
-        setIsEditingProfile(false);
-    };
-
-    const handleSaveJob = () => {
-        if (editingJobId) {
-            setJobs(prev => prev.map(j => j.id === editingJobId ? { ...j, ...newJob } as Job : j));
-        } else {
-            const job: Job = {
-                id: uuidv4(),
-                ...newJob as Job,
-                postedDate: new Date().toISOString().split('T')[0],
-                companyId: user.companyId || ''
-            };
-            setJobs(prev => [job, ...prev]);
-        }
-        setIsJobModalOpen(false);
-        setEditingJobId(null);
-    };
-
-    const handleSaveTrip = () => {
-        if (!newTrip.destination || !newTrip.startDate || !newTrip.endDate) return;
-
-        if (editingTripId) {
-            setTrips(prev => prev.map(t => t.id === editingTripId ? { ...t, ...newTrip } as Trip : t));
-        } else {
-            const trip: Trip = {
-                id: uuidv4(),
-                ...newTrip as Trip,
-                spent: 0,
-                status: 'Planned',
-                companyId: user.companyId || ''
-            };
-            setTrips(prev => [trip, ...prev]);
-        }
-        setIsTripModalOpen(false);
-        setEditingTripId(null);
-    };
-
-    const handleGenerateItinerary = async (trip: Trip) => {
-        setIsGeneratingItinerary(true);
-        setSelectedTripForItinerary(trip);
-        try {
-            const result = await generateItinerary(trip.destination, trip.startDate, trip.endDate, trip.purpose);
-            if (result) {
-                setGeneratedItinerary(result);
-                setIsItineraryModalOpen(true);
-                // Save to trip
-                setTrips(prev => prev.map(t => t.id === trip.id ? { ...t, itinerary: result } : t));
-            }
-        } catch (error) {
-            alert("Failed to generate itinerary. Please try again.");
-        } finally {
-            setIsGeneratingItinerary(false);
-        }
-    };
-
-    const handleSendPraise = () => {
-        if (!newPraise.toUserEmail || !newPraise.message) return;
-
-        const toUser = allUsers.find(u => u.email === newPraise.toUserEmail);
-        if (!toUser) return;
-
-        const praise: Praise = {
-            id: uuidv4(),
-            fromUserName: user.name,
-            fromUserEmail: user.email,
-            fromUserInitials: user.avatarInitials,
-            toUserName: toUser.name,
-            toUserEmail: toUser.email,
-            toUserInitials: toUser.avatarInitials,
-            message: newPraise.message,
-            category: newPraise.category,
-            date: new Date().toISOString().split('T')[0],
-            companyId: user.companyId || ''
-        };
-
-        setPraiseList(prev => [praise, ...prev]);
-        setIsPraiseModalOpen(false);
-        setNewPraise({ toUserEmail: '', message: '', category: 'Teamwork' });
-    };
-
-    const handleScheduleInterview = () => {
-        if (!selectedApplication || !newInterview.interviewerEmail || !newInterview.date || !newInterview.time) return;
-
-        const interviewer = allUsers.find(u => u.email === newInterview.interviewerEmail);
-        if (!interviewer) return;
-
-        const newReview: InterviewFeedback = {
-            id: uuidv4(),
-            interviewerEmail: interviewer.email,
-            interviewerName: interviewer.name,
-            assignedDate: `${newInterview.date} ${newInterview.time}`,
-            status: 'Pending'
-        };
-
-        setApplications(prev => prev.map(app => {
-            if (app.id === selectedApplication.id) {
-                return {
-                    ...app,
-                    status: 'Interview',
-                    reviews: [...app.reviews, newReview]
-                };
-            }
-            return app;
-        }));
-
-        setIsAssignInterviewerModalOpen(false);
-        setNewInterview({ date: '', time: '', interviewerEmail: '' });
-        alert(`Interview scheduled with ${interviewer.name}`);
-    };
-
-    const handleSubmitFeedback = () => {
-        if (!selectedApplication || !selectedReviewId) return;
-
-        setApplications(prev => prev.map(app => {
-            if (app.id === selectedApplication.id) {
-                return {
-                    ...app,
-                    reviews: app.reviews.map(rev => {
-                        if (rev.id === selectedReviewId) {
-                            return {
-                                ...rev,
-                                status: 'Completed',
-                                notes: feedbackForm.notes,
-                                sentiment: feedbackForm.sentiment,
-                                completedDate: new Date().toISOString().split('T')[0]
-                            };
-                        }
-                        return rev;
-                    })
-                };
-            }
-            return app;
-        }));
-
-        setIsFeedbackModalOpen(false);
-        setFeedbackForm({ notes: '', sentiment: 'Neutral' });
-        setSelectedReviewId(null);
-        alert("Feedback submitted successfully");
-    };
-
-    const handleUpdateStatus = (appId: string, status: 'Hired' | 'Rejected') => {
-        setApplications(prev => prev.map(app =>
-            app.id === appId ? { ...app, status: status } : app
-        ));
-        alert(`Candidate marked as ${status}`);
-    };
-
-    const handleOpenReviewModal = (review: EmployeeReview) => {
-        setSelectedReview(review);
-
-        // Check if structured or unstructured
-        if (review.templateId && review.responses) {
-            // Load existing answers into state
-            const responsesMap: Record<string, string> = {};
-            review.responses.forEach(r => {
-                if (review.status === 'Pending Self' && r.selfAnswer) responsesMap[r.question] = r.selfAnswer;
-                else if (review.status === 'Pending Manager' && r.managerAnswer) responsesMap[r.question] = r.managerAnswer;
-            });
-            setReviewResponses(responsesMap);
-        }
-
-        // Pre-populate ratings/text if legacy
-        const isManager = review.managerEmail === user.email;
-        if (isManager) {
-            setReviewForm({ text: review.managerReview || '', rating: review.managerRating || 0 });
-        } else {
-            setReviewForm({ text: review.selfReview || '', rating: review.selfRating || 0 });
-        }
-
-        setIsReviewModalOpen(true);
-    };
-
-    const handleSaveReview = () => {
-        if (!selectedReview) return;
-
-        const isManager = selectedReview.managerEmail === user.email;
-
-        setReviews(prev => prev.map(r => {
-            if (r.id === selectedReview.id) {
-
-                // Handle Structured Responses Update
-                let updatedResponses = r.responses;
-                if (r.templateId && r.responses) {
-                    updatedResponses = r.responses.map(resp => {
-                        const answer = reviewResponses[resp.question];
-                        if (answer) {
-                            if (isManager) return { ...resp, managerAnswer: answer };
-                            else return { ...resp, selfAnswer: answer };
-                        }
-                        return resp;
-                    });
-                }
-
-                if (isManager) {
-                    return {
-                        ...r,
-                        managerReview: reviewForm.text,
-                        managerRating: reviewForm.rating,
-                        completedAt: new Date().toISOString().split('T')[0],
-                        status: 'Completed',
-                        responses: updatedResponses
-                    };
-                } else {
-                    return {
-                        ...r,
-                        selfReview: reviewForm.text,
-                        selfRating: reviewForm.rating,
-                        submittedAt: new Date().toISOString().split('T')[0],
-                        status: 'Pending Manager',
-                        responses: updatedResponses
-                    };
-                }
-            }
-            return r;
-        }));
-
-        setIsReviewModalOpen(false);
-        setSelectedReview(null);
-        setReviewForm({ text: '', rating: 0 });
-        setReviewResponses({});
-    };
-
-    // Review Template Logic
-    const handleLoadExampleQuestions = (role: string) => {
-        const examples = ROLE_BASED_QUESTIONS[role] || [];
-        setNewTemplate(prev => ({ ...prev, questions: [...prev.questions, ...examples] }));
-    };
-
-    const handleSaveTemplate = () => {
-        if (!newTemplate.name || newTemplate.questions.length === 0) return;
-        const template: ReviewTemplate = {
-            id: uuidv4(),
-            name: newTemplate.name,
-            role: newTemplate.role,
-            questions: newTemplate.questions,
-            companyId: user.companyId || ''
-        };
-        setReviewTemplates(prev => [...prev, template]);
-        setIsTemplateModalOpen(false);
-        setNewTemplate({ name: '', role: 'Software Engineer', questions: [] });
-    };
-
-    const handleStartReviewCycle = () => {
-        if (!startCycleForm.period || !startCycleForm.templateId) return;
-
-        const template = reviewTemplates.find(t => t.id === startCycleForm.templateId);
-        if (!template) return;
-
-        // For demo, we assign to all non-admin users. In real app, filter by role.
-        const eligibleUsers = allUsers.filter(u => u.role !== 'Administrator');
-
-        const newReviews: EmployeeReview[] = eligibleUsers.map(emp => {
-            const manager = allUsers.find(u => u.email === emp.employment?.managerEmail) || allUsers.find(u => u.role === 'Administrator')!; // Fallback to admin if no manager
-
-            return {
-                id: uuidv4(),
-                period: startCycleForm.period,
-                employeeName: emp.name,
-                employeeEmail: emp.email,
-                managerName: manager.name,
-                managerEmail: manager.email,
-                status: 'Pending Self',
-                companyId: user.companyId || '',
-                templateId: template.id,
-                responses: template.questions.map(q => ({ question: q }))
-            };
-        });
-
-        setReviews(prev => [...prev, ...newReviews]);
-        setIsStartCycleModalOpen(false);
-        setStartCycleForm({ period: '', templateId: '' });
-        alert(`Review cycle started! Assigned ${newReviews.length} reviews.`);
-    };
-
-    // Goal Management Handlers
-    const handleSaveGoal = () => {
-        if (!newGoal.title || !newGoal.dueDate) return;
-
-        const goal: Goal = {
-            id: uuidv4(),
-            title: newGoal.title,
-            description: newGoal.description || '',
-            type: newGoal.type || 'Business',
-            visibility: newGoal.visibility || 'Manager',
-            status: 'Not Started',
-            dueDate: newGoal.dueDate,
-            userId: user.email,
-            userName: user.name,
-            companyId: user.companyId || ''
-        };
-
-        setGoals(prev => [goal, ...prev]);
-        setIsGoalModalOpen(false);
-        setNewGoal({ title: '', description: '', type: 'Business', visibility: 'Manager', status: 'Not Started', dueDate: '' });
-    };
-
-    const handleUpdateGoalStatus = (goalId: string, status: Goal['status']) => {
-        setGoals(prev => prev.map(g => g.id === goalId ? { ...g, status } : g));
-    };
-
-    // Document Upload Handlers
-    const handleDocumentFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setNewDocumentFile({
-                    name: file.name,
-                    type: file.type,
-                    data: reader.result as string
-                });
-                // Auto-populate name if empty
-                if (!newDocumentForm.name) {
-                    setNewDocumentForm(prev => ({ ...prev, name: file.name.split('.')[0] }));
-                }
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-
-    const handleSaveDocument = () => {
-        if (!newDocumentFile || !newDocumentForm.name) return;
-
-        let docType: EmployeeDocument['type'] = 'Doc';
-        if (newDocumentFile.type.includes('pdf')) docType = 'PDF';
-        else if (newDocumentFile.type.includes('image')) docType = 'Image';
-
-        const newDoc: EmployeeDocument = {
-            id: uuidv4(),
-            name: newDocumentForm.name,
-            category: newDocumentForm.category,
-            type: docType,
-            uploadDate: new Date().toISOString().split('T')[0],
-            url: newDocumentFile.data
-        };
-
-        setUser(prev => ({
-            ...prev,
-            documents: [...(prev.documents || []), newDoc]
-        }));
-
-        setIsDocumentUploadModalOpen(false);
-        setNewDocumentFile(null);
-        setNewDocumentForm({ name: '', category: 'Other' });
-    };
-
-    // Helpers for Survey Creation
-    const handleAddQuestion = () => {
-        setNewSurvey({
-            ...newSurvey,
-            questions: [...newSurvey.questions, { id: uuidv4(), text: '', type: 'rating' }]
-        });
-    };
-
-    const handleUpdateQuestion = (id: string, field: 'text' | 'type', value: string) => {
-        setNewSurvey({
-            ...newSurvey,
-            questions: newSurvey.questions.map(q => q.id === id ? { ...q, [field]: value } : q)
-        });
-    };
-
-    const handleRemoveQuestion = (id: string) => {
-        setNewSurvey({
-            ...newSurvey,
-            questions: newSurvey.questions.filter(q => q.id !== id)
-        });
-    };
-
-    const handleSaveSurvey = () => {
-        if (!newSurvey.title || newSurvey.questions.some(q => !q.text)) {
-            alert("Please fill in the survey title and all questions.");
-            return;
-        }
-
-        const survey: Survey = {
-            id: uuidv4(),
-            title: newSurvey.title,
-            description: newSurvey.description,
-            questions: newSurvey.questions as SurveyQuestion[],
-            isActive: true,
-            createdAt: new Date().toISOString().split('T')[0],
-            createdBy: user.name,
-            companyId: user.companyId || ''
-        };
-
-        setSurveys(prev => [survey, ...prev]);
-        setIsCreateSurveyModalOpen(false);
-        setNewSurvey({ title: '', description: '', questions: [{ id: uuidv4(), text: '', type: 'rating' }] });
-    };
-
-    const handleConfirmationAction = () => {
-        const { action, itemId } = confirmationModal;
-
-        if (action === 'logout') {
-            setIsAuthenticated(false);
-            setShowLandingPage(true);
-            setView('dashboard');
-        } else if (action === 'approve' && itemId) {
-            setExpenses(prev => prev.map(e => e.id === itemId ? { ...e, status: 'Approved' } : e));
-        } else if (action === 'reject' && itemId) {
-            setExpenses(prev => prev.map(e => e.id === itemId ? { ...e, status: 'Rejected' } : e));
-        } else if (action === 'approve-absence' && itemId) {
-            setAbsenceRequests(prev => prev.map(a => a.id === itemId ? { ...a, status: 'Approved' } : a));
-        } else if (action === 'reject-absence' && itemId) {
-            setAbsenceRequests(prev => prev.map(a => a.id === itemId ? { ...a, status: 'Rejected' } : a));
-        } else if (action === 'approve-time' && itemId) {
-            setTimeEntries(prev => prev.map(t => t.id === itemId ? { ...t, status: 'Approved' } : t));
-        } else if (action === 'reject-time' && itemId) {
-            setTimeEntries(prev => prev.map(t => t.id === itemId ? { ...t, status: 'Rejected' } : t));
-        } else if (action === 'delete-job' && itemId) {
-            setJobs(prev => prev.filter(j => j.id !== itemId));
-        } else if (action === 'delete-survey' && itemId) {
-            setSurveys(prev => prev.filter(s => s.id !== itemId));
-        } else if (action === 'remove-team-member' && itemId) {
-            handleRemoveTeamMember();
-        } else if (action === 'hire-candidate' && itemId) {
-            handleUpdateStatus(itemId, 'Hired');
-        } else if (action === 'reject-candidate' && itemId) {
-            handleUpdateStatus(itemId, 'Rejected');
-        } else if (action === 'delete-time-entry' && itemId) {
-            setTimeEntries(prev => prev.filter(t => t.id !== itemId));
-        } else if (action === 'delete-absence-request' && itemId) {
-            setAbsenceRequests(prev => prev.filter(a => a.id !== itemId));
-        } else if (action === 'delete-goal' && itemId) {
-            setGoals(prev => prev.filter(g => g.id !== itemId));
-        }
-
-        setConfirmationModal({ ...confirmationModal, isOpen: false, itemId: null });
-    };
-
-    // Render Section Helpers
     const renderSidebar = () => (
         <div className={`fixed inset-y-0 left-0 z-40 w-64 bg-slate-900 text-white transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:static`}>
+            {/* Sidebar implementation */}
             <div className="flex flex-col h-full">
                 <div className="flex items-center gap-3 px-6 h-16 border-b border-slate-800">
                     <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-900/50">M</div>
@@ -1322,9 +131,17 @@ export default function App() {
                         <MapIcon size={20} />
                         <span className="font-medium">Trips</span>
                     </button>
-                    <button onClick={() => { setView('time-absence'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${view === 'time-absence' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                    <button onClick={() => { setView('attendance'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${view === 'attendance' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
                         <Clock size={20} />
-                        <span className="font-medium">Time & Absence</span>
+                        <span className="font-medium">Attendance</span>
+                    </button>
+                    <button onClick={() => { setView('absence'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${view === 'absence' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                        <CalendarDays size={20} />
+                        <span className="font-medium">Absence</span>
+                    </button>
+                    <button onClick={() => { setView('payroll'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${view === 'payroll' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                        <DollarSign size={20} />
+                        <span className="font-medium">Payroll</span>
                     </button>
                     <button onClick={() => { setView('my-team'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${view === 'my-team' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
                         <Users size={20} />
@@ -1388,491 +205,573 @@ export default function App() {
         </div>
     );
 
-    if (!showLandingPage && !isAuthenticated) {
-        return <AuthScreen onLogin={(u) => { setIsAuthenticated(true); setUser(u); }} onBack={() => setShowLandingPage(true)} availableUsers={MOCK_USERS} company={currentCompany} initialIsSignUp={authMode === 'signup'} />;
-    }
-
-    if (showLandingPage) {
-        return <LandingPage onNavigateToAuth={(mode) => { setAuthMode(mode || 'login'); setShowLandingPage(false); }} />;
-    }
-
-
-    const MyTeam = React.lazy(() => import('./features/MyTeam/MyTeam'));
-    const ManageTeam = React.lazy(() => import('./features/Admin/ManageTeam'));
-    const CompanySettings = React.lazy(() => import('./features/Admin/CompanySettings'));
-
-    const myTeam = allUsers.filter(u => u.employment?.managerEmail === user.email);
-    const isManager = myTeam.length > 0 || user.role === 'Administrator';
-
-    // Filter Absence/Time Requests for Managers/Admins
-    const teamAbsenceRequests = user.role === 'Administrator'
-        ? absenceRequests
-        : absenceRequests.filter(req => myTeam.some(member => member.email === req.userId));
-
-    const teamTimeEntries = user.role === 'Administrator'
-        ? timeEntries
-        : timeEntries.filter(entry => myTeam.some(member => member.email === entry.userId));
-
-    const appProps = {
-        user, expenses, trips, setView, jobs, surveys, allUsers, timeEntries, absenceRequests,
-        praiseList, reviewTemplates, reviews, goals, applications, myTeam, isManager,
-        visibleExpensesCount, setVisibleExpensesCount,
-        calculateLeaveBalance, handleGenerateItinerary, isGeneratingItinerary,
-        selectedTripForItinerary, setEditingTripId, setNewTrip, setIsTripModalOpen,
-        setActiveTimeAbsenceTab, setIsTimeModalOpen, setIsAbsenceModalOpen,
-        timeAbsenceViewMode, setTimeAbsenceViewMode, teamTimeEntries, teamAbsenceRequests,
-        setConfirmationModal, handleUpdateGoalStatus, setIsGoalModalOpen,
-        setIsSettingModalOpen: () => { }, setActiveSettingsTab, setIsManageTeamModalOpen,
-        setIsJobModalOpen, setIsApplicationModalOpen, setSelectedJobForApplication,
-        setIsInviteUserModalOpen, isDocumentUploadModalOpen: false, setIsDocumentUploadModalOpen,
-        setIsCreateSurveyModalOpen, setIsTakeSurveyModalOpen, setIsSurveyResultsModalOpen,
-        setSelectedSurvey, handleUpdateStatus, isReviewModalOpen, handleOpenReviewModal, setIsStartCycleModalOpen,
-        setIsTemplateModalOpen, startCycleForm, setStartCycleForm
-    };
-
     return (
         <div className="flex h-dvh overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
-            {/* Sidebar */}
             {renderSidebar()}
 
-            {/* Overlay for mobile menu */}
             {isMobileMenuOpen && (
-                <div
-                    className="fixed inset-0 bg-black/50 z-30 md:hidden backdrop-blur-sm"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                />
+                <div className="fixed inset-0 bg-black/50 z-30 md:hidden backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
             )}
 
-            {/* Main Content */}
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-                {/* Header */}
                 <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 h-16 flex items-center justify-between px-4 sm:px-6 z-20">
                     <div className="flex items-center gap-4">
                         <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
                             <Menu size={24} />
                         </button>
-                        <h2 className="text-xl font-bold text-slate-800 dark:text-white capitalize truncate">
-                            {view.replace('-', ' ')}
-                        </h2>
+                        <h2 className="text-xl font-bold text-slate-800 dark:text-white capitalize truncate">{view.replace('-', ' ')}</h2>
                     </div>
-
                     <div className="flex items-center gap-3">
                         <button onClick={toggleTheme} className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
                             {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
                         </button>
-                        <div className="relative hidden sm:block">
-                            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <input type="text" placeholder="Search..." className="pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border-none rounded-full text-sm focus:ring-2 focus:ring-indigo-500 w-64 text-slate-900 dark:text-white placeholder-slate-500" />
-                        </div>
-                        <button onClick={() => setView('notifications')} className={`relative p-2 rounded-full transition-colors ${view === 'notifications' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
+                        <button className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full relative transition-colors">
                             <Bell size={20} />
-                            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
+                            <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
                         </button>
                     </div>
                 </header>
 
-                {/* View Content */}
-                <main className="flex-1 overflow-auto p-4 sm:p-6 scroll-smooth">
-                    {view === 'dashboard' && <React.Suspense fallback={<div className="p-8 text-center text-slate-500">Loading...</div>}><Dashboard {...appProps} /></React.Suspense>}
-
-                    {view === 'migo-chat' && (
-                        <div className="max-w-4xl mx-auto h-full animate-fade-in flex flex-col">
-                            <ChatMode />
-                        </div>
-                    )}
-
-                    {view === 'migo-live' && (
-                        <div className="h-full animate-fade-in">
-                            <LiveMode />
-                        </div>
-                    )}
-
-                    {view === 'assistant' && (
-                        <div className="max-w-4xl mx-auto h-full animate-fade-in">
-                            <Assistant />
-                        </div>
-                    )}
-
-                    {view === 'goals' && <React.Suspense fallback={<div className="p-8 text-center text-slate-500">Loading...</div>}><Goals {...appProps} /></React.Suspense>}
-
-                    {view === 'reviews' && <React.Suspense fallback={<div className="p-8 text-center text-slate-500">Loading...</div>}><Reviews {...appProps} /></React.Suspense>}
-
-                    {view === 'expenses' && <React.Suspense fallback={<div className="p-8 text-center text-slate-500">Loading...</div>}><Expenses {...appProps} /></React.Suspense>}
-
-                    {view === 'trips' && <React.Suspense fallback={<div className="p-8 text-center text-slate-500">Loading...</div>}><Trips {...appProps} /></React.Suspense>}
-
-                    {view === 'time-absence' && <React.Suspense fallback={<div className="p-8 text-center text-slate-500">Loading...</div>}><TimeAndAbsence {...appProps} /></React.Suspense>}
-
-                    {/* ... existing content ... */}
-
-                    {view === 'jobs' && <React.Suspense fallback={<div className="p-8 text-center text-slate-500">Loading...</div>}><Jobs {...appProps} /></React.Suspense>}
-
-                    {view === 'recruitment' && <React.Suspense fallback={<div className="p-8 text-center text-slate-500">Loading...</div>}><Recruitment {...appProps} /></React.Suspense>}
-
-                    {/* ... existing code ... */}
-
-                    {view === 'my-team' && <React.Suspense fallback={<div className="p-8 text-center text-slate-500">Loading...</div>}><MyTeam {...appProps} /></React.Suspense>}
-
-                    {view === 'team' && user.role === 'Administrator' && <React.Suspense fallback={<div className="p-8 text-center text-slate-500">Loading...</div>}><ManageTeam {...appProps} /></React.Suspense>}
-
-                    {view === 'recognition' && <React.Suspense fallback={<div className="p-8 text-center text-slate-500">Loading...</div>}><Recognition {...appProps} /></React.Suspense>}
-
-                    {view === 'surveys' && <React.Suspense fallback={<div className="p-8 text-center text-slate-500">Loading...</div>}><Surveys {...appProps} /></React.Suspense>}
-
-                    {view === 'company-settings' && user.role === 'Administrator' && <React.Suspense fallback={<div className="p-8 text-center text-slate-500">Loading...</div>}><CompanySettings {...appProps} /></React.Suspense>}
-
-                    {view === 'settings' && <React.Suspense fallback={<div className="p-8 text-center text-slate-500">Loading...</div>}><SettingsView {...appProps} /></React.Suspense>}
-
-                    {view === 'notifications' && (
-                        <div className="max-w-3xl mx-auto animate-fade-in">
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Notifications</h2>
-                                <button onClick={() => setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))} className="text-sm text-indigo-600 hover:underline">Mark all as read</button>
-                            </div>
-
-                            <div className="space-y-3">
-                                {notifications.slice(0, visibleNotificationsCount).map(notif => (
-                                    <div key={notif.id} className={`p-4 rounded-xl border flex gap-4 transition-colors ${notif.isRead ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800' : 'bg-indigo-50 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-900/30'}`}>
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 
-                                   ${notif.type === 'success' ? 'bg-green-100 text-green-600' :
-                                                notif.type === 'alert' ? 'bg-red-100 text-red-600' :
-                                                    notif.type === 'warning' ? 'bg-amber-100 text-amber-600' :
-                                                        'bg-blue-100 text-blue-600'}`}>
-                                            {notif.type === 'success' ? <CheckCircle2 size={20} /> :
-                                                notif.type === 'alert' ? <AlertTriangle size={20} /> :
-                                                    notif.type === 'warning' ? <Clock size={20} /> : <Info size={20} />}
-                                        </div>
-                                        <div>
-                                            <div className="flex justify-between items-start w-full">
-                                                <h4 className={`font-bold text-sm ${notif.isRead ? 'text-slate-800 dark:text-slate-200' : 'text-slate-900 dark:text-white'}`}>{notif.title}</h4>
-                                                <span className="text-xs text-slate-400 ml-4 whitespace-nowrap">{notif.date}</span>
-                                            </div>
-                                            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{notif.message}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {notifications.length > visibleNotificationsCount && (
-                                <div className="mt-6 text-center">
-                                    <button onClick={() => setVisibleNotificationsCount(prev => prev + 10)} className="px-6 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm">
-                                        Load More
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    )}
+                <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950 p-4 sm:p-6 lg:p-8 space-y-8">
+                    <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-indigo-600" /></div>}>
+                        {view === 'dashboard' && <Dashboard {...appProps} />}
+                        {view === 'expenses' && <Expenses {...appProps} />}
+                        {view === 'trips' && <Trips {...appProps} />}
+                        {view === 'attendance' && <Attendance {...appProps} />}
+                        {view === 'absence' && <Absence {...appProps} />}
+                        {view === 'time-absence' && <TimeAndAbsence {...appProps} />}
+                        {view === 'my-team' && <MyTeam {...appProps} />}
+                        {view === 'goals' && <Goals {...appProps} />}
+                        {view === 'jobs' && <Jobs {...appProps} />}
+                        {view === 'recognition' && <Recognition {...appProps} />}
+                        {view === 'reviews' && <Reviews {...appProps} />}
+                        {view === 'surveys' && <Surveys {...appProps} />}
+                        {view === 'recruitment' && <Recruitment {...appProps} />}
+                        {view === 'team' && <ManageTeam {...appProps} />}
+                        {view === 'company-settings' && <CompanySettings {...appProps} />}
+                        {view === 'settings' && <SettingsView {...appProps} />}
+                        {view === 'payroll' && <Payroll {...appProps} />}
+                    </Suspense>
                 </main>
             </div>
 
-            {/* --- Modals --- */}
+            <ConfirmationModal
+                isOpen={modals.confirmationModal.isOpen}
+                title={modals.confirmationModal.title}
+                message={modals.confirmationModal.message}
+                isDestructive={modals.confirmationModal.isDestructive}
+                onConfirm={() => {
+                    const { action, itemId } = modals.confirmationModal;
+                    if (action === 'logout') handleLogout();
+                    else if (action === 'approve' && itemId) data.setExpenses(prev => prev.map(e => e.id === itemId ? { ...e, status: 'Approved' } : e));
+                    else if (action === 'reject' && itemId) data.setExpenses(prev => prev.map(e => e.id === itemId ? { ...e, status: 'Rejected' } : e));
+                    else if (action === 'approve-absence' && itemId) data.setAbsenceRequests(prev => prev.map(a => a.id === itemId ? { ...a, status: 'Approved' } : a));
+                    else if (action === 'reject-absence' && itemId) data.setAbsenceRequests(prev => prev.map(a => a.id === itemId ? { ...a, status: 'Rejected' } : a));
+                    else if (action === 'approve-time' && itemId) data.setTimeEntries(prev => prev.map(t => t.id === itemId ? { ...t, status: 'Approved' } : t));
+                    else if (action === 'reject-time' && itemId) data.setTimeEntries(prev => prev.map(t => t.id === itemId ? { ...t, status: 'Rejected' } : t));
+                    else if (action === 'delete-job' && itemId) data.setJobs(prev => prev.filter(j => j.id !== itemId));
+                    else if (action === 'delete-survey' && itemId) data.setSurveys(prev => prev.filter(s => s.id !== itemId));
+                    else if (action === 'remove-team-member' && itemId) data.handleRemoveTeamMember(itemId, () => { });
+                    else if (action === 'hire-candidate' && itemId) data.handleUpdateStatus(itemId, 'Hired');
+                    else if (action === 'reject-candidate' && itemId) data.handleUpdateStatus(itemId, 'Rejected');
+                    else if (action === 'delete-time-entry' && itemId) data.setTimeEntries(prev => prev.filter(t => t.id !== itemId));
+                    else if (action === 'delete-absence-request' && itemId) data.setAbsenceRequests(prev => prev.filter(a => a.id !== itemId));
+                    else if (action === 'delete-goal' && itemId) data.setGoals(prev => prev.filter(g => g.id !== itemId));
+                    modals.setConfirmationModal(prev => ({ ...prev, isOpen: false }));
+                }}
+                onCancel={() => modals.setConfirmationModal(prev => ({ ...prev, isOpen: false }))}
+            />
 
-            {/* Trip Modal */}
-            {isTripModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 dark:border-slate-800">
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                            <h3 className="font-bold text-lg text-slate-800 dark:text-white">{editingTripId ? 'Edit Trip' : 'Plan New Trip'}</h3>
-                            <button onClick={() => setIsTripModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Destination</label>
-                                <input type="text" value={newTrip.destination} onChange={e => setNewTrip({ ...newTrip, destination: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" placeholder="City, Country" />
+            {/* ── Add Expense Modal ── */}
+            {modals.isExpenseModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Add Expense">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => modals.setIsExpenseModalOpen(false)} />
+                    <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 dark:border-slate-700 animate-fade-in">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl"><Receipt size={18} className="text-indigo-600 dark:text-indigo-400" /></div>
+                                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Add Expense</h2>
                             </div>
+                            <button onClick={() => modals.setIsExpenseModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><X size={18} /></button>
+                        </div>
+
+                        {/* Form */}
+                        <form
+                            onSubmit={e => {
+                                e.preventDefault();
+                                data.handleSaveManualExpense(modals.newManualExpense, () => {
+                                    modals.setIsExpenseModalOpen(false);
+                                    modals.setNewManualExpense({
+                                        date: new Date().toISOString().split('T')[0],
+                                        currency: 'USD', category: 'Other',
+                                        merchant: '', amount: 0, description: ''
+                                    });
+                                });
+                            }}
+                            className="p-6 space-y-4"
+                        >
                             <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Start Date</label>
-                                    <input type="date" value={newTrip.startDate} onChange={e => setNewTrip({ ...newTrip, startDate: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
+                                <div className="col-span-2">
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Merchant / Vendor <span className="text-red-500">*</span></label>
+                                    <input
+                                        required
+                                        type="text"
+                                        placeholder="e.g. Starbucks, Delta Airlines"
+                                        value={modals.newManualExpense.merchant || ''}
+                                        onChange={e => modals.setNewManualExpense(p => ({ ...p, merchant: e.target.value }))}
+                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
+                                    />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-500 uppercase mb-1">End Date</label>
-                                    <input type="date" value={newTrip.endDate} onChange={e => setNewTrip({ ...newTrip, endDate: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Amount <span className="text-red-500">*</span></label>
+                                    <input
+                                        required
+                                        type="number"
+                                        min="0.01"
+                                        step="0.01"
+                                        placeholder="0.00"
+                                        value={modals.newManualExpense.amount || ''}
+                                        onChange={e => modals.setNewManualExpense(p => ({ ...p, amount: parseFloat(e.target.value) || 0 }))}
+                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Currency</label>
+                                    <select
+                                        value={modals.newManualExpense.currency || 'USD'}
+                                        onChange={e => modals.setNewManualExpense(p => ({ ...p, currency: e.target.value }))}
+                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
+                                    >
+                                        {['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'CHF'].map(c => <option key={c}>{c}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Date <span className="text-red-500">*</span></label>
+                                    <input
+                                        required
+                                        type="date"
+                                        value={modals.newManualExpense.date || new Date().toISOString().split('T')[0]}
+                                        onChange={e => modals.setNewManualExpense(p => ({ ...p, date: e.target.value }))}
+                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Category</label>
+                                    <select
+                                        value={modals.newManualExpense.category || 'Other'}
+                                        onChange={e => modals.setNewManualExpense(p => ({ ...p, category: e.target.value as any }))}
+                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
+                                    >
+                                        {['Travel', 'Meals', 'Lodging', 'Office Supplies', 'Software', 'Entertainment', 'Other'].map(c => <option key={c}>{c}</option>)}
+                                    </select>
+                                </div>
+                                <div className="col-span-2">
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Description</label>
+                                    <textarea
+                                        rows={3}
+                                        placeholder="Optional notes about this expense..."
+                                        value={modals.newManualExpense.description || ''}
+                                        onChange={e => modals.setNewManualExpense(p => ({ ...p, description: e.target.value }))}
+                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm resize-none"
+                                    />
                                 </div>
                             </div>
-                            <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Purpose</label>
-                                <input type="text" value={newTrip.purpose} onChange={e => setNewTrip({ ...newTrip, purpose: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" placeholder="Conference, Client Meeting..." />
+
+                            {/* Actions */}
+                            <div className="flex gap-3 pt-2">
+                                <button type="button" onClick={() => modals.setIsExpenseModalOpen(false)} className="flex-1 py-2.5 text-slate-600 dark:text-slate-300 font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors text-sm">
+                                    Cancel
+                                </button>
+                                <button type="submit" className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-indigo-900/20 text-sm">
+                                    Submit Expense
+                                </button>
                             </div>
-                            <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Budget ($)</label>
-                                <input type="number" value={newTrip.budget} onChange={e => setNewTrip({ ...newTrip, budget: Number(e.target.value) })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
-                            </div>
-                            <button onClick={handleSaveTrip} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors">Save Trip</button>
-                        </div>
+                        </form>
                     </div>
                 </div>
             )}
 
-            {/* Itinerary Modal */}
-            {isItineraryModalOpen && selectedTripForItinerary && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800">
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-indigo-50 dark:bg-indigo-900/20">
+            {/* ── Plan New Trip Modal ── */}
+            {modals.isTripModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Plan New Trip">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { modals.setIsTripModalOpen(false); modals.setEditingTripId(null); }} />
+                    <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 dark:border-slate-700 animate-fade-in">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl"><Plane size={18} className="text-indigo-600 dark:text-indigo-400" /></div>
+                                <h2 className="text-lg font-bold text-slate-900 dark:text-white">{modals.editingTripId ? 'Edit Trip' : 'Plan New Trip'}</h2>
+                            </div>
+                            <button onClick={() => { modals.setIsTripModalOpen(false); modals.setEditingTripId(null); }} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><X size={18} /></button>
+                        </div>
+
+                        {/* Form */}
+                        <form
+                            onSubmit={e => {
+                                e.preventDefault();
+                                data.handleSaveTrip(modals.newTrip, modals.editingTripId, () => {
+                                    modals.setIsTripModalOpen(false);
+                                    modals.setEditingTripId(null);
+                                    modals.setNewTrip({
+                                        destination: '', purpose: '',
+                                        startDate: new Date().toISOString().split('T')[0],
+                                        endDate: new Date().toISOString().split('T')[0],
+                                        budget: 0, status: 'Planned'
+                                    });
+                                });
+                            }}
+                            className="p-6 space-y-4"
+                        >
                             <div>
-                                <h3 className="font-bold text-lg text-indigo-900 dark:text-indigo-100">Trip Itinerary</h3>
-                                <p className="text-xs text-indigo-700 dark:text-indigo-300">{selectedTripForItinerary.destination}</p>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Destination <span className="text-red-500">*</span></label>
+                                <input
+                                    required
+                                    type="text"
+                                    placeholder="e.g. New York, London, Tokyo"
+                                    value={modals.newTrip.destination || ''}
+                                    onChange={e => modals.setNewTrip(p => ({ ...p, destination: e.target.value }))}
+                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
+                                />
                             </div>
-                            <div className="flex items-center gap-2">
-                                <button onClick={() => generateItineraryPDF(selectedTripForItinerary, generatedItinerary)} className="p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg" title="Download PDF"><Download size={20} /></button>
-                                <button onClick={() => setIsItineraryModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Purpose <span className="text-red-500">*</span></label>
+                                <input
+                                    required
+                                    type="text"
+                                    placeholder="e.g. Client Meeting, Conference, Training"
+                                    value={modals.newTrip.purpose || ''}
+                                    onChange={e => modals.setNewTrip(p => ({ ...p, purpose: e.target.value }))}
+                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
+                                />
                             </div>
-                        </div>
-                        <div className="p-6 overflow-y-auto">
-                            <div className="prose prose-sm max-w-none dark:prose-invert">
-                                <MarkdownRenderer content={generatedItinerary} />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Start Date <span className="text-red-500">*</span></label>
+                                    <input
+                                        required
+                                        type="date"
+                                        value={modals.newTrip.startDate || new Date().toISOString().split('T')[0]}
+                                        onChange={e => modals.setNewTrip(p => ({ ...p, startDate: e.target.value }))}
+                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">End Date <span className="text-red-500">*</span></label>
+                                    <input
+                                        required
+                                        type="date"
+                                        value={modals.newTrip.endDate || new Date().toISOString().split('T')[0]}
+                                        onChange={e => modals.setNewTrip(p => ({ ...p, endDate: e.target.value }))}
+                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
+                                    />
+                                </div>
                             </div>
-                        </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Budget (USD)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="1"
+                                        placeholder="0"
+                                        value={modals.newTrip.budget || ''}
+                                        onChange={e => modals.setNewTrip(p => ({ ...p, budget: parseFloat(e.target.value) || 0 }))}
+                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Status</label>
+                                    <select
+                                        value={modals.newTrip.status || 'Planned'}
+                                        onChange={e => modals.setNewTrip(p => ({ ...p, status: e.target.value as any }))}
+                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
+                                    >
+                                        <option value="Planned">Planned</option>
+                                        <option value="Active">Active</option>
+                                        <option value="Completed">Completed</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex gap-3 pt-2">
+                                <button type="button" onClick={() => { modals.setIsTripModalOpen(false); modals.setEditingTripId(null); }} className="flex-1 py-2.5 text-slate-600 dark:text-slate-300 font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors text-sm">
+                                    Cancel
+                                </button>
+                                <button type="submit" className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-indigo-900/20 text-sm">
+                                    {modals.editingTripId ? 'Save Changes' : 'Create Trip'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
 
-            {/* Time Entry Modal */}
-            {isTimeModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 dark:border-slate-800">
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                            <h3 className="font-bold text-lg text-slate-800 dark:text-white">Log Time</h3>
-                            <button onClick={() => setIsTimeModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+            {/* ── Log Time Modal ── */}
+            {modals.isTimeModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Log Time">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => modals.setIsTimeModalOpen(false)} />
+                    <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-slate-700 animate-fade-in">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl"><Clock size={18} className="text-indigo-600 dark:text-indigo-400" /></div>
+                                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Log Time</h2>
+                            </div>
+                            <button onClick={() => modals.setIsTimeModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><X size={18} /></button>
                         </div>
-                        <div className="p-6 space-y-4">
+                        <form
+                            onSubmit={e => {
+                                e.preventDefault();
+                                data.handleSaveTimeEntry(modals.newTimeEntry, () => {
+                                    modals.setIsTimeModalOpen(false);
+                                    modals.setNewTimeEntry({ date: new Date().toISOString().split('T')[0], startTime: '09:00', endTime: '17:00', description: '', breakMinutes: 0 });
+                                });
+                            }}
+                            className="p-6 space-y-4"
+                        >
                             <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Date</label>
-                                <input type="date" value={newTimeEntry.date} onChange={e => setNewTimeEntry({ ...newTimeEntry, date: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Date <span className="text-red-500">*</span></label>
+                                <input required type="date" value={modals.newTimeEntry.date || new Date().toISOString().split('T')[0]} onChange={e => modals.setNewTimeEntry(p => ({ ...p, date: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Start Time</label>
-                                    <input type="time" value={newTimeEntry.startTime} onChange={e => setNewTimeEntry({ ...newTimeEntry, startTime: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Start Time <span className="text-red-500">*</span></label>
+                                    <input required type="time" value={modals.newTimeEntry.startTime || '09:00'} onChange={e => modals.setNewTimeEntry(p => ({ ...p, startTime: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-500 uppercase mb-1">End Time</label>
-                                    <input type="time" value={newTimeEntry.endTime} onChange={e => setNewTimeEntry({ ...newTimeEntry, endTime: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">End Time <span className="text-red-500">*</span></label>
+                                    <input required type="time" value={modals.newTimeEntry.endTime || '17:00'} onChange={e => modals.setNewTimeEntry(p => ({ ...p, endTime: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Break (Minutes)</label>
-                                <input type="number" value={newTimeEntry.breakMinutes} onChange={e => setNewTimeEntry({ ...newTimeEntry, breakMinutes: Number(e.target.value) })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Break (minutes)</label>
+                                <input type="number" min="0" step="5" placeholder="0" value={modals.newTimeEntry.breakMinutes || ''} onChange={e => modals.setNewTimeEntry(p => ({ ...p, breakMinutes: parseInt(e.target.value) || 0 }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Description</label>
-                                <textarea value={newTimeEntry.description} onChange={e => setNewTimeEntry({ ...newTimeEntry, description: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" rows={3} />
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Description / Task</label>
+                                <textarea rows={3} placeholder="What did you work on?" value={modals.newTimeEntry.description || ''} onChange={e => modals.setNewTimeEntry(p => ({ ...p, description: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none text-sm resize-none" />
                             </div>
-                            <button onClick={handleSaveTimeEntry} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors">Submit Time</button>
-                        </div>
+                            <div className="flex gap-3 pt-2">
+                                <button type="button" onClick={() => modals.setIsTimeModalOpen(false)} className="flex-1 py-2.5 text-slate-600 dark:text-slate-300 font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors text-sm">Cancel</button>
+                                <button type="submit" className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-indigo-900/20 text-sm">Log Time</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
 
-            {/* Absence Modal */}
-            {isAbsenceModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 dark:border-slate-800">
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                            <h3 className="font-bold text-lg text-slate-800 dark:text-white">Request Leave</h3>
-                            <button onClick={() => setIsAbsenceModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Start Date</label>
-                                    <input type="date" value={newAbsence.startDate} onChange={e => setNewAbsence({ ...newAbsence, startDate: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-medium text-slate-500 uppercase mb-1">End Date</label>
-                                    <input type="date" value={newAbsence.endDate} onChange={e => setNewAbsence({ ...newAbsence, endDate: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
-                                </div>
+            {/* ── Request Leave Modal ── */}
+            {modals.isAbsenceModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Request Leave">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => modals.setIsAbsenceModalOpen(false)} />
+                    <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-slate-700 animate-fade-in">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl"><CalendarDays size={18} className="text-indigo-600 dark:text-indigo-400" /></div>
+                                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Request Leave</h2>
                             </div>
+                            <button onClick={() => modals.setIsAbsenceModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><X size={18} /></button>
+                        </div>
+                        <form
+                            onSubmit={e => {
+                                e.preventDefault();
+                                data.handleSaveAbsence(modals.newAbsence, () => {
+                                    modals.setIsAbsenceModalOpen(false);
+                                    modals.setNewAbsence({ startDate: new Date().toISOString().split('T')[0], endDate: new Date().toISOString().split('T')[0], type: 'Vacation' as any, reason: '' });
+                                });
+                            }}
+                            className="p-6 space-y-4"
+                        >
                             <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Type</label>
-                                <select value={newAbsence.type} onChange={e => setNewAbsence({ ...newAbsence, type: e.target.value as any })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm">
-                                    {Object.values(AbsenceType).map(t => <option key={t} value={t}>{t}</option>)}
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Leave Type <span className="text-red-500">*</span></label>
+                                <select required value={modals.newAbsence.type || 'Vacation'} onChange={e => modals.setNewAbsence(p => ({ ...p, type: e.target.value as any }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                                    <option value="Vacation">Vacation</option>
+                                    <option value="Sick Leave">Sick Leave</option>
+                                    <option value="Personal">Personal</option>
+                                    <option value="Remote Work">Remote Work</option>
                                 </select>
                             </div>
-                            <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Reason</label>
-                                <textarea value={newAbsence.reason} onChange={e => setNewAbsence({ ...newAbsence, reason: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" rows={3} />
-                            </div>
-                            <button onClick={handleSaveAbsence} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors">Submit Request</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Expense Modal */}
-            {isExpenseModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh]">
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                            <h3 className="font-bold text-lg text-slate-800 dark:text-white">Add Expense</h3>
-                            <button onClick={() => setIsExpenseModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 overflow-y-auto">
-                            {expenseEntryMode === 'scan' ? (
-                                <>
-                                    <ReceiptUploader onAnalysisComplete={handleReceiptAnalysis} />
-                                    <div className="mt-6 text-center">
-                                        <p className="text-sm text-slate-500 mb-2">Or enter details manually</p>
-                                        <button onClick={() => setExpenseEntryMode('manual')} className="text-indigo-600 hover:underline font-medium text-sm">
-                                            Switch to Manual Entry
-                                        </button>
-                                    </div>
-                                </>
-                            ) : (
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Merchant</label>
-                                        <input type="text" value={newManualExpense.merchant} onChange={e => setNewManualExpense({ ...newManualExpense, merchant: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" placeholder="e.g. Starbucks" />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Amount</label>
-                                            <input type="number" value={newManualExpense.amount} onChange={e => setNewManualExpense({ ...newManualExpense, amount: Number(e.target.value) })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" placeholder="0.00" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Currency</label>
-                                            <select value={newManualExpense.currency} onChange={e => setNewManualExpense({ ...newManualExpense, currency: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm">
-                                                <option value="USD">USD</option>
-                                                <option value="EUR">EUR</option>
-                                                <option value="GBP">GBP</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Date</label>
-                                        <input type="date" value={newManualExpense.date} onChange={e => setNewManualExpense({ ...newManualExpense, date: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Category</label>
-                                        <select value={newManualExpense.category} onChange={e => setNewManualExpense({ ...newManualExpense, category: e.target.value as ExpenseCategory })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm">
-                                            {Object.values(ExpenseCategory).map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Description</label>
-                                        <input type="text" value={newManualExpense.description} onChange={e => setNewManualExpense({ ...newManualExpense, description: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" placeholder="Optional description" />
-                                    </div>
-                                    <div className="flex gap-3 pt-2">
-                                        <button onClick={() => setExpenseEntryMode('scan')} className="flex-1 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800">Back to Scan</button>
-                                        <button onClick={handleSaveManualExpense} className="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">Save Expense</button>
-                                    </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Start Date <span className="text-red-500">*</span></label>
+                                    <input required type="date" value={modals.newAbsence.startDate || new Date().toISOString().split('T')[0]} onChange={e => modals.setNewAbsence(p => ({ ...p, startDate: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
                                 </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Manage Team Modal */}
-            {isManageTeamModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-200 dark:border-slate-800">
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                            <h3 className="font-bold text-lg text-slate-800 dark:text-white">{manageTeamMode === 'assign_manager' ? 'Assign Manager' : 'Add Team Member'}</h3>
-                            <button onClick={() => setIsManageTeamModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            {manageTeamMode === 'assign_manager' && selectedTeamMember && (
-                                <>
-                                    <p className="text-sm text-slate-600 dark:text-slate-300">Assigning manager for <span className="font-bold">{selectedTeamMember.name}</span></p>
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Select Manager</label>
-                                        <select value={newManagerEmail} onChange={e => setNewManagerEmail(e.target.value)} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm">
-                                            <option value="">Select a manager...</option>
-                                            {allUsers.filter(u => u.email !== selectedTeamMember.email).map(u => (
-                                                <option key={u.email} value={u.email}>{u.name} ({u.email})</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <button onClick={() => handleSaveTeamAssignment(selectedTeamMember.email, newManagerEmail)} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors">Save Assignment</button>
-                                </>
-                            )}
-                            {manageTeamMode === 'add_member' && (
-                                <>
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Select Employee</label>
-                                        <select value={newTeamMemberEmail} onChange={e => setNewTeamMemberEmail(e.target.value)} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm">
-                                            <option value="">Select an employee...</option>
-                                            {allUsers.filter(u => u.email !== user.email && u.employment?.managerEmail !== user.email).map(u => (
-                                                <option key={u.email} value={u.email}>{u.name} ({u.email})</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <button onClick={() => handleSaveTeamAssignment(newTeamMemberEmail, user.email)} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors">Add to My Team</button>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Invite User Modal */}
-            {isInviteUserModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 dark:border-slate-800">
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                            <h3 className="font-bold text-lg text-slate-800 dark:text-white">Invite New User</h3>
-                            <button onClick={() => setIsInviteUserModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Full Name</label>
-                                <input type="text" value={inviteForm.name} onChange={e => setInviteForm({ ...inviteForm, name: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">End Date <span className="text-red-500">*</span></label>
+                                    <input required type="date" value={modals.newAbsence.endDate || new Date().toISOString().split('T')[0]} onChange={e => modals.setNewAbsence(p => ({ ...p, endDate: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
+                                </div>
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Email</label>
-                                <input type="email" value={inviteForm.email} onChange={e => setInviteForm({ ...inviteForm, email: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Reason</label>
+                                <textarea rows={3} placeholder="Briefly describe the reason for your leave..." value={modals.newAbsence.reason || ''} onChange={e => modals.setNewAbsence(p => ({ ...p, reason: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none text-sm resize-none" />
+                            </div>
+                            <div className="flex gap-3 pt-2">
+                                <button type="button" onClick={() => modals.setIsAbsenceModalOpen(false)} className="flex-1 py-2.5 text-slate-600 dark:text-slate-300 font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors text-sm">Cancel</button>
+                                <button type="submit" className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-indigo-900/20 text-sm">Submit Request</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Invite / Add Member Modal ── */}
+            {modals.isInviteUserModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Add Team Member">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => modals.setIsInviteUserModalOpen(false)} />
+                    <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-slate-700 animate-fade-in">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl"><UserPlus size={18} className="text-indigo-600 dark:text-indigo-400" /></div>
+                                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Add Team Member</h2>
+                            </div>
+                            <button onClick={() => modals.setIsInviteUserModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><X size={18} /></button>
+                        </div>
+                        <form
+                            onSubmit={e => {
+                                e.preventDefault();
+                                data.handleSendInvite(modals.inviteForm, () => {
+                                    modals.setIsInviteUserModalOpen(false);
+                                    modals.setInviteForm({ name: '', email: '', role: 'Employee', jobTitle: '', department: '' });
+                                });
+                            }}
+                            className="p-6 space-y-4"
+                        >
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Full Name <span className="text-red-500">*</span></label>
+                                <input required type="text" placeholder="e.g. Jane Smith" value={modals.inviteForm.name || ''} onChange={e => modals.setInviteForm((p: any) => ({ ...p, name: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Work Email <span className="text-red-500">*</span></label>
+                                <input required type="email" placeholder="e.g. jane@company.com" value={modals.inviteForm.email || ''} onChange={e => modals.setInviteForm((p: any) => ({ ...p, email: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Role</label>
-                                    <select value={inviteForm.role} onChange={e => setInviteForm({ ...inviteForm, role: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm">
-                                        <option value="User">User</option>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Role</label>
+                                    <select value={modals.inviteForm.role || 'Employee'} onChange={e => modals.setInviteForm((p: any) => ({ ...p, role: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                                        <option value="Employee">Employee</option>
+                                        <option value="Manager">Manager</option>
                                         <option value="Administrator">Administrator</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Department</label>
-                                    <input type="text" value={inviteForm.department} onChange={e => setInviteForm({ ...inviteForm, department: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Department</label>
+                                    <input type="text" placeholder="e.g. Engineering" value={modals.inviteForm.department || ''} onChange={e => modals.setInviteForm((p: any) => ({ ...p, department: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Job Title</label>
-                                <input type="text" value={inviteForm.jobTitle} onChange={e => setInviteForm({ ...inviteForm, jobTitle: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Job Title</label>
+                                <input type="text" placeholder="e.g. Senior Engineer" value={modals.inviteForm.jobTitle || ''} onChange={e => modals.setInviteForm((p: any) => ({ ...p, jobTitle: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
                             </div>
-                            <button onClick={handleSendInvite} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors">Send Invite</button>
-                        </div>
+                            <div className="flex gap-3 pt-2">
+                                <button type="button" onClick={() => modals.setIsInviteUserModalOpen(false)} className="flex-1 py-2.5 text-slate-600 dark:text-slate-300 font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors text-sm">Cancel</button>
+                                <button type="submit" className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-indigo-900/20 text-sm">Send Invite</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
 
-            {/* Job Modal */}
-            {isJobModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 dark:border-slate-800">
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                            <h3 className="font-bold text-lg text-slate-800 dark:text-white">{editingJobId ? 'Edit Job' : 'Post New Job'}</h3>
-                            <button onClick={() => setIsJobModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+            {/* ── Create / Edit Goal Modal ── */}
+            {modals.isGoalModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Create Goal">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => modals.setIsGoalModalOpen(false)} />
+                    <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-slate-700 animate-fade-in">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl"><Target size={18} className="text-indigo-600 dark:text-indigo-400" /></div>
+                                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Create Goal</h2>
+                            </div>
+                            <button onClick={() => modals.setIsGoalModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><X size={18} /></button>
                         </div>
-                        <div className="p-6 space-y-4">
+                        <form
+                            onSubmit={e => {
+                                e.preventDefault();
+                                data.handleSaveGoal(modals.newGoal, () => {
+                                    modals.setIsGoalModalOpen(false);
+                                    modals.setNewGoal({ title: '', description: '', type: 'Business', visibility: 'Manager', status: 'Not Started', dueDate: '' });
+                                });
+                            }}
+                            className="p-6 space-y-4"
+                        >
                             <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Job Title</label>
-                                <input type="text" value={newJob.title} onChange={e => setNewJob({ ...newJob, title: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Goal Title <span className="text-red-500">*</span></label>
+                                <input required type="text" placeholder="e.g. Increase team velocity by 20%" value={modals.newGoal.title || ''} onChange={e => modals.setNewGoal((p: any) => ({ ...p, title: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Description</label>
+                                <textarea rows={3} placeholder="Describe the goal and how success will be measured..." value={modals.newGoal.description || ''} onChange={e => modals.setNewGoal((p: any) => ({ ...p, description: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none text-sm resize-none" />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Department</label>
-                                    <input type="text" value={newJob.department} onChange={e => setNewJob({ ...newJob, department: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Type</label>
+                                    <select value={modals.newGoal.type || 'Business'} onChange={e => modals.setNewGoal((p: any) => ({ ...p, type: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                                        <option value="Business">Business</option>
+                                        <option value="Personal">Personal</option>
+                                    </select>
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Location</label>
-                                    <input type="text" value={newJob.location} onChange={e => setNewJob({ ...newJob, location: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Visibility</label>
+                                    <select value={modals.newGoal.visibility || 'Manager'} onChange={e => modals.setNewGoal((p: any) => ({ ...p, visibility: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                                        <option value="Manager">Manager only</option>
+                                        <option value="Public">Public</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Due Date <span className="text-red-500">*</span></label>
+                                <input required type="date" value={modals.newGoal.dueDate || ''} onChange={e => modals.setNewGoal((p: any) => ({ ...p, dueDate: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
+                            </div>
+                            <div className="flex gap-3 pt-2">
+                                <button type="button" onClick={() => modals.setIsGoalModalOpen(false)} className="flex-1 py-2.5 text-slate-600 dark:text-slate-300 font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors text-sm">Cancel</button>
+                                <button type="submit" className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-indigo-900/20 text-sm">Create Goal</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Post New Job Modal ── */}
+            {modals.isJobModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Post New Job">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { modals.setIsJobModalOpen(false); modals.setEditingJobId(null); }} />
+                    <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 dark:border-slate-700 animate-fade-in max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 sticky top-0 bg-white dark:bg-slate-900 z-10">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl"><Briefcase size={18} className="text-indigo-600 dark:text-indigo-400" /></div>
+                                <h2 className="text-lg font-bold text-slate-900 dark:text-white">{modals.editingJobId ? 'Edit Job' : 'Post New Job'}</h2>
+                            </div>
+                            <button onClick={() => { modals.setIsJobModalOpen(false); modals.setEditingJobId(null); }} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><X size={18} /></button>
+                        </div>
+                        <form
+                            onSubmit={e => {
+                                e.preventDefault();
+                                data.handleSaveJob(modals.newJob, modals.editingJobId, () => {
+                                    modals.setIsJobModalOpen(false);
+                                    modals.setEditingJobId(null);
+                                    modals.setNewJob({ title: '', department: '', location: '', type: 'Full-time', salaryRange: '', description: '', status: 'Open' });
+                                });
+                            }}
+                            className="p-6 space-y-4"
+                        >
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Job Title <span className="text-red-500">*</span></label>
+                                <input required type="text" placeholder="e.g. Senior Software Engineer" value={modals.newJob.title || ''} onChange={e => modals.setNewJob((p: any) => ({ ...p, title: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Department</label>
+                                    <input type="text" placeholder="e.g. Engineering" value={modals.newJob.department || ''} onChange={e => modals.setNewJob((p: any) => ({ ...p, department: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Location</label>
+                                    <input type="text" placeholder="e.g. Remote, New York" value={modals.newJob.location || ''} onChange={e => modals.setNewJob((p: any) => ({ ...p, location: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Type</label>
-                                    <select value={newJob.type} onChange={e => setNewJob({ ...newJob, type: e.target.value as any })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm">
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Employment Type</label>
+                                    <select value={modals.newJob.type || 'Full-time'} onChange={e => modals.setNewJob((p: any) => ({ ...p, type: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
                                         <option value="Full-time">Full-time</option>
                                         <option value="Part-time">Part-time</option>
                                         <option value="Contract">Contract</option>
@@ -1882,148 +781,78 @@ export default function App() {
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Salary Range</label>
-                                    <input type="text" value={newJob.salaryRange} onChange={e => setNewJob({ ...newJob, salaryRange: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Salary Range</label>
+                                    <input type="text" placeholder="e.g. $80k – $120k" value={modals.newJob.salaryRange || ''} onChange={e => modals.setNewJob((p: any) => ({ ...p, salaryRange: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Description</label>
-                                <textarea value={newJob.description} onChange={e => setNewJob({ ...newJob, description: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" rows={4} />
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Job Description <span className="text-red-500">*</span></label>
+                                <textarea required rows={5} placeholder="Describe the role, responsibilities, and requirements..." value={modals.newJob.description || ''} onChange={e => modals.setNewJob((p: any) => ({ ...p, description: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none text-sm resize-none" />
                             </div>
-                            <button onClick={handleSaveJob} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors">Save Job</button>
-                        </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Status</label>
+                                <select value={modals.newJob.status || 'Open'} onChange={e => modals.setNewJob((p: any) => ({ ...p, status: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                                    <option value="Open">Open</option>
+                                    <option value="Closed">Closed</option>
+                                </select>
+                            </div>
+                            <div className="flex gap-3 pt-2">
+                                <button type="button" onClick={() => { modals.setIsJobModalOpen(false); modals.setEditingJobId(null); }} className="flex-1 py-2.5 text-slate-600 dark:text-slate-300 font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors text-sm">Cancel</button>
+                                <button type="submit" className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-indigo-900/20 text-sm">{modals.editingJobId ? 'Save Changes' : 'Post Job'}</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
 
-            {/* Application List Modal */}
-            {isApplicationModalOpen && selectedJobForApplication && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800">
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-indigo-50 dark:bg-indigo-900/20">
-                            <div>
-                                <h3 className="font-bold text-lg text-indigo-900 dark:text-indigo-100">Applicants for {selectedJobForApplication.title}</h3>
+            {/* ── Send Praise Modal ── */}
+            {modals.isPraiseModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Send Praise">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => modals.setIsPraiseModalOpen(false)} />
+                    <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 dark:border-slate-700 animate-fade-in max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 sticky top-0 bg-white dark:bg-slate-900 z-10">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-pink-50 dark:bg-pink-900/30 rounded-xl"><Heart size={18} className="text-pink-600 dark:text-pink-400" /></div>
+                                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Send Praise</h2>
                             </div>
-                            <button onClick={() => setIsApplicationModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+                            <button onClick={() => modals.setIsPraiseModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><X size={18} /></button>
                         </div>
-                        <div className="p-6 overflow-y-auto">
-                            {applications.filter(a => a.jobId === selectedJobForApplication.id).length > 0 ? (
-                                <div className="space-y-4">
-                                    {applications.filter(a => a.jobId === selectedJobForApplication.id).map(app => (
-                                        <div key={app.id} className="p-4 border border-slate-200 dark:border-slate-700 rounded-xl flex justify-between items-center">
-                                            <div>
-                                                <p className="font-bold text-slate-900 dark:text-white">{app.applicantName}</p>
-                                                <p className="text-sm text-slate-500">{app.applicantEmail}</p>
-                                                {app.coverNote && <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 italic">"{app.coverNote}"</p>}
-                                            </div>
-                                            <div className="text-right">
-                                                <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium mb-1 ${app.status === 'Hired' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>{app.status}</span>
-                                                <p className="text-xs text-slate-400">{app.appliedDate}</p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-center text-slate-500">No applicants yet.</p>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Apply Job Modal */}
-            {isApplyModalOpen && selectedJobToApply && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 dark:border-slate-800">
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
+                        <form
+                            onSubmit={e => {
+                                e.preventDefault();
+                                data.handleSavePraise(modals.newPraise, () => {
+                                    modals.setIsPraiseModalOpen(false);
+                                    modals.setNewPraise({ toUserEmail: '', message: '', category: 'Teamwork' });
+                                });
+                            }}
+                            className="p-6 space-y-4"
+                        >
                             <div>
-                                <h3 className="font-bold text-lg text-slate-800 dark:text-white">Apply for {selectedJobToApply.title}</h3>
-                                <p className="text-xs text-slate-500">{selectedJobToApply.location}</p>
-                            </div>
-                            <button onClick={() => setIsApplyModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center gap-3">
-                                <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center font-bold">
-                                    {user.avatarInitials}
-                                </div>
-                                <div>
-                                    <p className="text-sm font-bold text-slate-900 dark:text-white">{user.name}</p>
-                                    <p className="text-xs text-slate-500">{user.email}</p>
-                                </div>
-                                <span className="ml-auto text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">Internal</span>
-                            </div>
-
-                            {/* CV Upload */}
-                            <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Attach CV / Resume</label>
-                                <div
-                                    onClick={() => cvInputRef.current?.click()}
-                                    className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-4 text-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Recipient <span className="text-red-500">*</span></label>
+                                <select
+                                    required
+                                    value={modals.newPraise.toUserEmail || ''}
+                                    onChange={e => modals.setNewPraise((p: any) => ({ ...p, toUserEmail: e.target.value }))}
+                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-pink-500 outline-none text-sm"
                                 >
-                                    <input
-                                        type="file"
-                                        ref={cvInputRef}
-                                        className="hidden"
-                                        accept=".pdf,.doc,.docx"
-                                        onChange={handleCvChange}
-                                    />
-                                    {applicationCv ? (
-                                        <div className="flex items-center justify-center gap-2 text-indigo-600">
-                                            <FileText size={20} />
-                                            <span className="text-sm font-medium">{applicationCv.name}</span>
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-col items-center gap-1 text-slate-500">
-                                            <Upload size={20} />
-                                            <span className="text-sm">Click to upload CV</span>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Cover Note (Optional)</label>
-                                <textarea
-                                    value={applicationNote}
-                                    onChange={e => setApplicationNote(e.target.value)}
-                                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm"
-                                    rows={3}
-                                    placeholder="Why are you a good fit for this role?"
-                                />
-                            </div>
-                            <button onClick={handleConfirmApply} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors">Submit Application</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Praise Modal */}
-            {isPraiseModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 dark:border-slate-800">
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-pink-50 dark:bg-pink-900/20">
-                            <h3 className="font-bold text-lg text-pink-900 dark:text-pink-100 flex items-center gap-2"><Heart size={20} fill="currentColor" /> Send Praise</h3>
-                            <button onClick={() => setIsPraiseModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">To</label>
-                                <select value={newPraise.toUserEmail} onChange={e => setNewPraise({ ...newPraise, toUserEmail: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm">
-                                    <option value="">Select teammate...</option>
-                                    {allUsers.filter(u => u.email !== user.email).map(u => (
-                                        <option key={u.email} value={u.email}>{u.name}</option>
+                                    <option value="" disabled>Select a colleague</option>
+                                    {data.allUsers.filter((u: any) => u.email !== user.email).map((u: any) => (
+                                        <option key={u.email} value={u.email}>{u.name} ({u.email})</option>
                                     ))}
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Category</label>
-                                <div className="flex flex-wrap gap-2">
-                                    {['Teamwork', 'Innovation', 'Leadership', 'Dedication', 'Helpful'].map(cat => (
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Category <span className="text-red-500">*</span></label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {(['Teamwork', 'Innovation', 'Leadership', 'Dedication', 'Helpful'] as const).map(cat => (
                                         <button
                                             key={cat}
-                                            onClick={() => setNewPraise({ ...newPraise, category: cat as any })}
-                                            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${newPraise.category === cat ? 'bg-pink-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}
+                                            type="button"
+                                            onClick={() => modals.setNewPraise((p: any) => ({ ...p, category: cat }))}
+                                            className={`px-4 py-2 rounded-xl border text-xs font-medium transition-all ${modals.newPraise.category === cat
+                                                    ? 'bg-pink-100 border-pink-200 text-pink-700 dark:bg-pink-900/40 dark:border-pink-800 dark:text-pink-300'
+                                                    : 'bg-slate-50 border-slate-100 text-slate-600 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400 hover:bg-slate-100'
+                                                }`}
                                         >
                                             {cat}
                                         </button>
@@ -2031,400 +860,188 @@ export default function App() {
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Message</label>
-                                <textarea value={newPraise.message} onChange={e => setNewPraise({ ...newPraise, message: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" rows={3} placeholder="What did they do great?" />
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Message <span className="text-red-500">*</span></label>
+                                <textarea required rows={4} placeholder="What did they do that was awesome?" value={modals.newPraise.message || ''} onChange={e => modals.setNewPraise((p: any) => ({ ...p, message: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-pink-500 outline-none text-sm resize-none" />
                             </div>
-                            <button onClick={handleSendPraise} className="w-full py-3 bg-pink-600 text-white rounded-xl font-medium hover:bg-pink-700 transition-colors">Send Praise</button>
-                        </div>
+                            <div className="flex gap-3 pt-2">
+                                <button type="button" onClick={() => modals.setIsPraiseModalOpen(false)} className="flex-1 py-2.5 text-slate-600 dark:text-slate-300 font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors text-sm">Cancel</button>
+                                <button type="submit" className="flex-[2] py-2.5 bg-pink-600 text-white font-bold rounded-xl hover:bg-pink-700 transition-colors shadow-lg shadow-pink-900/20 text-sm">Send Praise</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
 
-            {/* Create Survey Modal */}
-            {isCreateSurveyModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800">
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                            <h3 className="font-bold text-lg text-slate-800 dark:text-white">Create New Survey</h3>
-                            <button onClick={() => setIsCreateSurveyModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 overflow-y-auto space-y-6">
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Title</label>
-                                    <input type="text" value={newSurvey.title} onChange={e => setNewSurvey({ ...newSurvey, title: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Description</label>
-                                    <textarea value={newSurvey.description} onChange={e => setNewSurvey({ ...newSurvey, description: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" rows={2} />
-                                </div>
+            {/* ── Start Review Cycle Modal ── */}
+            {modals.isStartCycleModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Start Review Cycle">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => modals.setIsStartCycleModalOpen(false)} />
+                    <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-slate-700 animate-fade-in">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl"><ClipboardList size={18} className="text-indigo-600 dark:text-indigo-400" /></div>
+                                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Start Review Cycle</h2>
                             </div>
-
+                            <button onClick={() => modals.setIsStartCycleModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><X size={18} /></button>
+                        </div>
+                        <form
+                            onSubmit={e => {
+                                e.preventDefault();
+                                data.handleStartReviewCycle(modals.startCycleForm, () => {
+                                    modals.setIsStartCycleModalOpen(false);
+                                    modals.setStartCycleForm({ period: '', templateId: '' });
+                                });
+                            }}
+                            className="p-6 space-y-4"
+                        >
                             <div>
-                                <h4 className="font-bold text-sm text-slate-800 dark:text-white mb-2">Questions</h4>
-                                <div className="space-y-3">
-                                    {newSurvey.questions.map((q, idx) => (
-                                        <div key={q.id} className="p-3 border border-slate-200 dark:border-slate-700 rounded-lg flex gap-3 items-start">
-                                            <span className="text-slate-400 font-mono text-sm pt-2">Q{idx + 1}</span>
-                                            <div className="flex-1 space-y-2">
-                                                <input type="text" value={q.text} onChange={e => handleUpdateQuestion(q.id, 'text', e.target.value)} placeholder="Question text" className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
-                                                <select value={q.type} onChange={e => handleUpdateQuestion(q.id, 'type', e.target.value)} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm">
-                                                    <option value="rating">Rating (1-5)</option>
-                                                    <option value="text">Text Response</option>
-                                                </select>
-                                            </div>
-                                            <button onClick={() => handleRemoveQuestion(q.id)} className="text-red-400 hover:text-red-600 pt-2"><Trash2 size={16} /></button>
-                                        </div>
-                                    ))}
-                                </div>
-                                <button onClick={handleAddQuestion} className="mt-3 text-indigo-600 hover:underline text-sm font-medium flex items-center gap-1"><Plus size={16} /> Add Question</button>
-                            </div>
-                        </div>
-                        <div className="p-4 border-t border-slate-200 dark:border-slate-800">
-                            <button onClick={handleSaveSurvey} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors">Launch Survey</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Assign Interview Modal */}
-            {isAssignInterviewerModalOpen && selectedApplication && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 dark:border-slate-800">
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                            <h3 className="font-bold text-lg text-slate-800 dark:text-white">Schedule Interview</h3>
-                            <button onClick={() => setIsAssignInterviewerModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <p className="text-sm text-slate-600 dark:text-slate-400">Candidate: <span className="font-bold text-slate-900 dark:text-white">{selectedApplication.applicantName}</span></p>
-                            <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Interviewer</label>
-                                <select value={newInterview.interviewerEmail} onChange={e => setNewInterview({ ...newInterview, interviewerEmail: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm">
-                                    <option value="">Select Employee...</option>
-                                    {allUsers.map(u => <option key={u.email} value={u.email}>{u.name}</option>)}
-                                </select>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Date</label>
-                                    <input type="date" value={newInterview.date} onChange={e => setNewInterview({ ...newInterview, date: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Time</label>
-                                    <input type="time" value={newInterview.time} onChange={e => setNewInterview({ ...newInterview, time: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
-                                </div>
-                            </div>
-                            <button onClick={handleScheduleInterview} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors">Confirm Schedule</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Feedback Modal */}
-            {isFeedbackModalOpen && selectedApplication && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 dark:border-slate-800">
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                            <h3 className="font-bold text-lg text-slate-800 dark:text-white">Interview Feedback</h3>
-                            <button onClick={() => setIsFeedbackModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <p className="text-sm text-slate-600 dark:text-slate-400">Candidate: <span className="font-bold text-slate-900 dark:text-white">{selectedApplication.applicantName}</span></p>
-                            <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-2">Recommendation</label>
-                                <div className="flex gap-2">
-                                    <button onClick={() => setFeedbackForm({ ...feedbackForm, sentiment: 'Positive' })} className={`flex-1 py-2 rounded-lg text-sm font-medium border ${feedbackForm.sentiment === 'Positive' ? 'bg-green-100 border-green-500 text-green-700' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'}`}>Strong Hire</button>
-                                    <button onClick={() => setFeedbackForm({ ...feedbackForm, sentiment: 'Neutral' })} className={`flex-1 py-2 rounded-lg text-sm font-medium border ${feedbackForm.sentiment === 'Neutral' ? 'bg-amber-100 border-amber-500 text-amber-700' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'}`}>Neutral</button>
-                                    <button onClick={() => setFeedbackForm({ ...feedbackForm, sentiment: 'Negative' })} className={`flex-1 py-2 rounded-lg text-sm font-medium border ${feedbackForm.sentiment === 'Negative' ? 'bg-red-100 border-red-500 text-red-700' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'}`}>No Hire</button>
-                                </div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Review Period <span className="text-red-500">*</span></label>
+                                <input required type="text" placeholder="e.g. Q4 2024, 2025 Annual" value={modals.startCycleForm.period || ''} onChange={e => modals.setStartCycleForm((p: any) => ({ ...p, period: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Notes</label>
-                                <textarea value={feedbackForm.notes} onChange={e => setFeedbackForm({ ...feedbackForm, notes: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" rows={4} placeholder="Key strengths, weaknesses..." />
-                            </div>
-                            <button onClick={handleSubmitFeedback} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors">Submit Feedback</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Team Member Profile Modal */}
-            {isTeamMemberProfileModalOpen && selectedTeamMemberProfile && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800">
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-indigo-50 dark:bg-indigo-900/20">
-                            <h3 className="font-bold text-lg text-indigo-900 dark:text-indigo-100">Employee Profile</h3>
-                            <button onClick={() => setIsTeamMemberProfileModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 overflow-y-auto space-y-6">
-                            <div className="flex items-center gap-4">
-                                <div className="w-16 h-16 bg-indigo-600 rounded-full flex items-center justify-center text-2xl font-bold text-white">
-                                    {selectedTeamMemberProfile.avatarInitials}
-                                </div>
-                                <div>
-                                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">{selectedTeamMemberProfile.name}</h2>
-                                    <p className="text-slate-500">{selectedTeamMemberProfile.employment?.jobTitle} • {selectedTeamMemberProfile.email}</p>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl">
-                                    <h4 className="font-bold text-sm text-slate-900 dark:text-white mb-3">Employment Details</h4>
-                                    <div className="space-y-2 text-sm">
-                                        <div className="flex justify-between"><span className="text-slate-500">Department</span> <span className="text-slate-900 dark:text-white">{selectedTeamMemberProfile.employment?.department}</span></div>
-                                        <div className="flex justify-between"><span className="text-slate-500">Location</span> <span className="text-slate-900 dark:text-white">{selectedTeamMemberProfile.employment?.location}</span></div>
-                                        <div className="flex justify-between"><span className="text-slate-500">Start Date</span> <span className="text-slate-900 dark:text-white">{selectedTeamMemberProfile.employment?.startDate}</span></div>
-                                        <div className="flex justify-between"><span className="text-slate-500">Type</span> <span className="text-slate-900 dark:text-white">{selectedTeamMemberProfile.employment?.employmentType}</span></div>
-                                    </div>
-                                </div>
-                                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl">
-                                    <h4 className="font-bold text-sm text-slate-900 dark:text-white mb-3">Contact</h4>
-                                    <div className="space-y-2 text-sm">
-                                        <div className="flex justify-between"><span className="text-slate-500">Phone</span> <span className="text-slate-900 dark:text-white">{selectedTeamMemberProfile.phone || 'N/A'}</span></div>
-                                        <div className="flex justify-between"><span className="text-slate-500">Emergency</span> <span className="text-slate-900 dark:text-white">{selectedTeamMemberProfile.emergencyContact?.name || 'N/A'}</span></div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div>
-                                <h4 className="font-bold text-sm text-slate-900 dark:text-white mb-3">Documents</h4>
-                                {selectedTeamMemberProfile.documents && selectedTeamMemberProfile.documents.length > 0 ? (
-                                    <div className="space-y-2">
-                                        {selectedTeamMemberProfile.documents.map(doc => (
-                                            <div key={doc.id} className="flex items-center justify-between p-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm">
-                                                <div className="flex items-center gap-2">
-                                                    <FileText size={16} className="text-slate-400" />
-                                                    <span className="text-slate-700 dark:text-slate-300">{doc.name}</span>
-                                                </div>
-                                                <span className="text-xs text-slate-500">{doc.category}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : <p className="text-sm text-slate-500 italic">No documents available.</p>}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Review Template Modal (Create/Edit) */}
-            {isTemplateModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800">
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                            <h3 className="font-bold text-lg text-slate-800 dark:text-white">Create Review Template</h3>
-                            <button onClick={() => setIsTemplateModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 overflow-y-auto space-y-4">
-                            <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Template Name</label>
-                                <input type="text" value={newTemplate.name} onChange={e => setNewTemplate({ ...newTemplate, name: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" placeholder="e.g. Engineering Q3 Review" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Target Role</label>
-                                <select value={newTemplate.role} onChange={e => setNewTemplate({ ...newTemplate, role: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm">
-                                    {Object.keys(ROLE_BASED_QUESTIONS).map(role => (
-                                        <option key={role} value={role}>{role}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <div className="flex justify-between items-center mb-2">
-                                    <h4 className="font-bold text-sm text-slate-800 dark:text-white">Questions</h4>
-                                    <button onClick={() => handleLoadExampleQuestions(newTemplate.role)} className="text-xs text-indigo-600 hover:underline">Load Examples</button>
-                                </div>
-                                <div className="space-y-2">
-                                    {newTemplate.questions.map((q, idx) => (
-                                        <div key={idx} className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                value={q}
-                                                onChange={(e) => {
-                                                    const updated = [...newTemplate.questions];
-                                                    updated[idx] = e.target.value;
-                                                    setNewTemplate({ ...newTemplate, questions: updated });
-                                                }}
-                                                className="flex-1 p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm"
-                                            />
-                                            <button onClick={() => {
-                                                const updated = newTemplate.questions.filter((_, i) => i !== idx);
-                                                setNewTemplate({ ...newTemplate, questions: updated });
-                                            }} className="text-red-400 hover:text-red-600"><Trash2 size={16} /></button>
-                                        </div>
-                                    ))}
-                                </div>
-                                <button onClick={() => setNewTemplate({ ...newTemplate, questions: [...newTemplate.questions, ''] })} className="mt-2 text-indigo-600 hover:underline text-sm font-medium flex items-center gap-1"><Plus size={16} /> Add Custom Question</button>
-                            </div>
-                        </div>
-                        <div className="p-4 border-t border-slate-200 dark:border-slate-800">
-                            <button onClick={handleSaveTemplate} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors">Save Template</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Start Cycle Modal */}
-            {isStartCycleModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 dark:border-slate-800">
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                            <h3 className="font-bold text-lg text-slate-800 dark:text-white">Start Review Cycle</h3>
-                            <button onClick={() => setIsStartCycleModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Period Name</label>
-                                <input type="text" value={startCycleForm.period} onChange={e => setStartCycleForm({ ...startCycleForm, period: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" placeholder="e.g. 2024 Q1 Performance" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Select Template</label>
-                                <select value={startCycleForm.templateId} onChange={e => setStartCycleForm({ ...startCycleForm, templateId: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm">
-                                    <option value="">Select a template...</option>
-                                    {reviewTemplates.map(t => (
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Review Template <span className="text-red-500">*</span></label>
+                                <select required value={modals.startCycleForm.templateId || ''} onChange={e => modals.setStartCycleForm((p: any) => ({ ...p, templateId: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                                    <option value="" disabled>Select a template</option>
+                                    {data.reviewTemplates.map((t: any) => (
                                         <option key={t.id} value={t.id}>{t.name} ({t.role})</option>
                                     ))}
                                 </select>
                             </div>
-                            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg text-xs text-blue-700 dark:text-blue-300">
-                                This will create pending reviews for all eligible employees based on the selected template.
+                            <p className="text-xs text-slate-500 dark:text-slate-400">This will create review records for all eligible employees in your company.</p>
+                            <div className="flex gap-3 pt-2">
+                                <button type="button" onClick={() => modals.setIsStartCycleModalOpen(false)} className="flex-1 py-2.5 text-slate-600 dark:text-slate-300 font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors text-sm">Cancel</button>
+                                <button type="submit" className="flex-[2] py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-900/20 text-sm">Start Cycle</button>
                             </div>
-                            <button onClick={handleStartReviewCycle} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors">Launch Cycle</button>
-                        </div>
+                        </form>
                     </div>
                 </div>
             )}
 
-            {/* Create Goal Modal */}
-            {isGoalModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 dark:border-slate-800">
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                            <h3 className="font-bold text-lg text-slate-800 dark:text-white">Set New Goal</h3>
-                            <button onClick={() => setIsGoalModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+            {/* ── Manage Templates Modal ── */}
+            {modals.isTemplateModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Manage Review Templates">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => modals.setIsTemplateModalOpen(false)} />
+                    <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 dark:border-slate-700 animate-fade-in max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 sticky top-0 bg-white dark:bg-slate-900 z-10">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl"><BookTemplate size={18} className="text-indigo-600 dark:text-indigo-400" /></div>
+                                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Manage Review Templates</h2>
+                            </div>
+                            <button onClick={() => modals.setIsTemplateModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><X size={18} /></button>
                         </div>
-                        <div className="p-6 space-y-4">
+                        <div className="p-6 space-y-6">
                             <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Goal Title</label>
-                                <input type="text" value={newGoal.title} onChange={e => setNewGoal({ ...newGoal, title: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" placeholder="e.g. Increase Sales by 10%" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Description</label>
-                                <textarea value={newGoal.description} onChange={e => setNewGoal({ ...newGoal, description: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" rows={3} placeholder="Details about the goal..." />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Type</label>
-                                    <select value={newGoal.type} onChange={e => setNewGoal({ ...newGoal, type: e.target.value as any })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm">
-                                        <option value="Business">Business</option>
-                                        <option value="Personal">Personal Development</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Visibility</label>
-                                    <select value={newGoal.visibility} onChange={e => setNewGoal({ ...newGoal, visibility: e.target.value as any })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm">
-                                        <option value="Manager">Manager Only</option>
-                                        <option value="Public">Public (Team)</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Due Date</label>
-                                <input type="date" value={newGoal.dueDate} onChange={e => setNewGoal({ ...newGoal, dueDate: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
-                            </div>
-                            <button onClick={handleSaveGoal} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors">Create Goal</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Document Upload Modal */}
-            {isDocumentUploadModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 dark:border-slate-800">
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                            <h3 className="font-bold text-lg text-slate-800 dark:text-white">Upload Document</h3>
-                            <button onClick={() => setIsDocumentUploadModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <div
-                                onClick={() => documentInputRef.current?.click()}
-                                className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-6 text-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                            >
-                                <input
-                                    type="file"
-                                    ref={documentInputRef}
-                                    className="hidden"
-                                    onChange={handleDocumentFileChange}
-                                />
-                                {newDocumentFile ? (
-                                    <div className="flex flex-col items-center gap-2 text-indigo-600">
-                                        <FileText size={32} />
-                                        <span className="text-sm font-medium">{newDocumentFile.name}</span>
-                                    </div>
+                                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Existing Templates</h3>
+                                {data.reviewTemplates.length === 0 ? (
+                                    <p className="text-sm text-slate-400 italic">No templates yet. Create one below.</p>
                                 ) : (
-                                    <div className="flex flex-col items-center gap-2 text-slate-500">
-                                        <Upload size={32} />
-                                        <span className="text-sm">Click to upload file</span>
+                                    <div className="space-y-2">
+                                        {data.reviewTemplates.map((t: any) => (
+                                            <div key={t.id} className="flex items-center justify-between bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 border border-slate-100 dark:border-slate-700">
+                                                <div>
+                                                    <p className="text-sm font-medium text-slate-900 dark:text-white">{t.name}</p>
+                                                    <p className="text-xs text-slate-500">{t.role} · {t.questions.length} questions</p>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 )}
                             </div>
-                            <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Document Name</label>
-                                <input type="text" value={newDocumentForm.name} onChange={e => setNewDocumentForm({ ...newDocumentForm, name: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
+                            <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
+                                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Create New Template</h3>
+                                <form onSubmit={e => { e.preventDefault(); data.handleSaveTemplate(modals.newTemplate, () => { modals.setNewTemplate({ name: '', role: '', questions: [''] }); }); }} className="space-y-3">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Template Name <span className="text-red-500">*</span></label>
+                                            <input required type="text" placeholder="e.g. Annual Review" value={modals.newTemplate.name || ''} onChange={e => modals.setNewTemplate((p: any) => ({ ...p, name: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Role / Target</label>
+                                            <input type="text" placeholder="e.g. Engineer, Sales" value={modals.newTemplate.role || ''} onChange={e => modals.setNewTemplate((p: any) => ({ ...p, role: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Questions <span className="text-red-500">*</span></label>
+                                        <div className="space-y-2">
+                                            {(modals.newTemplate.questions || ['']).map((q: string, idx: number) => (
+                                                <div key={idx} className="flex gap-2">
+                                                    <input type="text" required placeholder={`Question ${idx + 1}`} value={q} onChange={e => { const updated = [...(modals.newTemplate.questions || [''])]; updated[idx] = e.target.value; modals.setNewTemplate((p: any) => ({ ...p, questions: updated })); }} className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
+                                                    {(modals.newTemplate.questions || ['']).length > 1 && (
+                                                        <button type="button" onClick={() => modals.setNewTemplate((p: any) => ({ ...p, questions: p.questions.filter((_: any, i: number) => i !== idx) }))} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><X size={14} /></button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                            <button type="button" onClick={() => modals.setNewTemplate((p: any) => ({ ...p, questions: [...(p.questions || ['']), ''] }))} className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium">+ Add Question</button>
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-end pt-1">
+                                        <button type="submit" className="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-900/20 text-sm">Create Template</button>
+                                    </div>
+                                </form>
                             </div>
-                            <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Category</label>
-                                <select value={newDocumentForm.category} onChange={e => setNewDocumentForm({ ...newDocumentForm, category: e.target.value as any })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm">
-                                    <option value="Contract">Contract</option>
-                                    <option value="ID">ID</option>
-                                    <option value="Tax">Tax</option>
-                                    <option value="Other">Other</option>
-                                </select>
-                            </div>
-                            <button onClick={handleSaveDocument} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors">Upload</button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Password Reset Modal */}
-            {isResetPasswordModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 dark:border-slate-800">
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                            <h3 className="font-bold text-lg text-slate-800 dark:text-white">Reset Password</h3>
-                            <button onClick={() => setIsResetPasswordModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+            {/* ── Create Survey Modal ── */}
+            {modals.isCreateSurveyModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Create Survey">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => modals.setIsCreateSurveyModalOpen(false)} />
+                    <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 dark:border-slate-700 animate-fade-in max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 sticky top-0 bg-white dark:bg-slate-900 z-10">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl"><ClipboardList size={18} className="text-indigo-600 dark:text-indigo-400" /></div>
+                                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Create Survey</h2>
+                            </div>
+                            <button onClick={() => modals.setIsCreateSurveyModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><X size={18} /></button>
                         </div>
-                        <div className="p-6 space-y-4">
+                        <form
+                            onSubmit={e => {
+                                e.preventDefault();
+                                data.handleCreateSurvey(modals.newSurvey, () => {
+                                    modals.setIsCreateSurveyModalOpen(false);
+                                    modals.setNewSurvey({ title: '', description: '', questions: [{ id: crypto.randomUUID(), text: '', type: 'rating' }] });
+                                });
+                            }}
+                            className="p-6 space-y-4"
+                        >
                             <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Current Password</label>
-                                <input type="password" value={resetPasswordForm.current} onChange={e => setResetPasswordForm({ ...resetPasswordForm, current: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Survey Title <span className="text-red-500">*</span></label>
+                                <input required type="text" placeholder="e.g. Employee Engagement Survey" value={modals.newSurvey.title || ''} onChange={e => modals.setNewSurvey((p: any) => ({ ...p, title: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">New Password</label>
-                                <input type="password" value={resetPasswordForm.new} onChange={e => setResetPasswordForm({ ...resetPasswordForm, new: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Description</label>
+                                <textarea rows={2} placeholder="Briefly describe the purpose of this survey" value={modals.newSurvey.description || ''} onChange={e => modals.setNewSurvey((p: any) => ({ ...p, description: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none text-sm resize-none" />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Confirm New Password</label>
-                                <input type="password" value={resetPasswordForm.confirm} onChange={e => setResetPasswordForm({ ...resetPasswordForm, confirm: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Questions <span className="text-red-500">*</span></label>
+                                <div className="space-y-3">
+                                    {(modals.newSurvey.questions || []).map((q: any, idx: number) => (
+                                        <div key={q.id || idx} className="bg-slate-50 dark:bg-slate-800 rounded-xl p-3 border border-slate-100 dark:border-slate-700">
+                                            <div className="flex gap-2 mb-2">
+                                                <input type="text" required placeholder={`Question ${idx + 1}`} value={q.text} onChange={e => { const updated = [...(modals.newSurvey.questions || [])]; updated[idx] = { ...updated[idx], text: e.target.value }; modals.setNewSurvey((p: any) => ({ ...p, questions: updated })); }} className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
+                                                {(modals.newSurvey.questions || []).length > 1 && (
+                                                    <button type="button" onClick={() => modals.setNewSurvey((p: any) => ({ ...p, questions: p.questions.filter((_: any, i: number) => i !== idx) }))} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><X size={14} /></button>
+                                                )}
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button type="button" onClick={() => { const updated = [...(modals.newSurvey.questions || [])]; updated[idx] = { ...updated[idx], type: 'rating' }; modals.setNewSurvey((p: any) => ({ ...p, questions: updated })); }} className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all border ${q.type === 'rating' ? 'bg-indigo-100 border-indigo-200 text-indigo-700 dark:bg-indigo-900/40 dark:border-indigo-800 dark:text-indigo-300' : 'bg-white border-slate-200 text-slate-500 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-400'}`}>&#9733; Rating (1–5)</button>
+                                                <button type="button" onClick={() => { const updated = [...(modals.newSurvey.questions || [])]; updated[idx] = { ...updated[idx], type: 'text' }; modals.setNewSurvey((p: any) => ({ ...p, questions: updated })); }} className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all border ${q.type === 'text' ? 'bg-indigo-100 border-indigo-200 text-indigo-700 dark:bg-indigo-900/40 dark:border-indigo-800 dark:text-indigo-300' : 'bg-white border-slate-200 text-slate-500 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-400'}`}>&#128221; Text Answer</button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <button type="button" onClick={() => modals.setNewSurvey((p: any) => ({ ...p, questions: [...(p.questions || []), { id: crypto.randomUUID(), text: '', type: 'rating' }] }))} className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium">+ Add Question</button>
+                                </div>
                             </div>
-                            <button onClick={handleResetPassword} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors">Update Password</button>
-                        </div>
+                            <div className="flex gap-3 pt-2">
+                                <button type="button" onClick={() => modals.setIsCreateSurveyModalOpen(false)} className="flex-1 py-2.5 text-slate-600 dark:text-slate-300 font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors text-sm">Cancel</button>
+                                <button type="submit" className="flex-[2] py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-900/20 text-sm">Create Survey</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
-
-            {/* Confirmation Modal */}
-            <ConfirmationModal
-                isOpen={confirmationModal.isOpen}
-                title={confirmationModal.title}
-                message={confirmationModal.message}
-                isDestructive={confirmationModal.isDestructive}
-                onConfirm={handleConfirmationAction}
-                onCancel={() => setConfirmationModal({ ...confirmationModal, isOpen: false })}
-            />
-
         </div>
     );
 }

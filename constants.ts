@@ -1,4 +1,4 @@
-import { Expense, ExpenseCategory, Trip, UserProfile, TimeEntry, AbsenceRequest, AbsenceType, Job, JobApplication, Praise, Survey, SurveyResponse, Company, AppNotification, EmployeeReview, ReviewTemplate, Goal } from './types';
+import { Expense, ExpenseCategory, Trip, UserProfile, TimeEntry, AbsenceRequest, AbsenceType, Job, JobApplication, Praise, Survey, SurveyResponse, Company, AppNotification, EmployeeReview, ReviewTemplate, Goal, PayStub, PayrollRun } from './types';
 
 export const MOCK_COMPANY: Company = {
   id: 'comp_123',
@@ -313,11 +313,11 @@ export const INITIAL_EXPENSES: Expense[] = [
 ];
 
 export const MOCK_TRIPS: Trip[] = [
-  { 
-    id: 't1', 
-    destination: 'New York, NY', 
-    startDate: '2023-10-15', 
-    endDate: '2023-10-18', 
+  {
+    id: 't1',
+    destination: 'New York, NY',
+    startDate: '2023-10-15',
+    endDate: '2023-10-18',
     purpose: 'TechConf 2023',
     status: 'Completed',
     budget: 2000,
@@ -325,44 +325,44 @@ export const MOCK_TRIPS: Trip[] = [
     itinerary: '## NYC Trip Itinerary\n\n**Day 1**\n- Arrive at JFK\n- Check-in at Marriott\n\n**Day 2**\n- Conference Keynote\n- Networking Lunch',
     companyId: 'comp_123'
   },
-  { 
-    id: 't2', 
-    destination: 'London, UK', 
-    startDate: '2023-11-02', 
-    endDate: '2023-11-05', 
+  {
+    id: 't2',
+    destination: 'London, UK',
+    startDate: '2023-11-02',
+    endDate: '2023-11-05',
     purpose: 'Client Merger Meeting',
     status: 'Planned',
     budget: 3500,
     spent: 748.70,
     companyId: 'comp_123'
   },
-  { 
-    id: 't3', 
-    destination: 'Austin, TX', 
-    startDate: '2023-12-10', 
-    endDate: '2023-12-12', 
+  {
+    id: 't3',
+    destination: 'Austin, TX',
+    startDate: '2023-12-10',
+    endDate: '2023-12-12',
     purpose: 'SXSW Planning',
     status: 'Planned',
     budget: 1500,
     spent: 0,
     companyId: 'comp_123'
   },
-  { 
-    id: 't4', 
-    destination: 'San Francisco, CA', 
-    startDate: '2024-01-15', 
-    endDate: '2024-01-20', 
+  {
+    id: 't4',
+    destination: 'San Francisco, CA',
+    startDate: '2024-01-15',
+    endDate: '2024-01-20',
     purpose: 'Quarterly Review',
     status: 'Planned',
     budget: 2800,
     spent: 0,
     companyId: 'comp_123'
   },
-  { 
-    id: 't5', 
-    destination: 'Berlin, Germany', 
-    startDate: '2024-02-05', 
-    endDate: '2024-02-10', 
+  {
+    id: 't5',
+    destination: 'Berlin, Germany',
+    startDate: '2024-02-05',
+    endDate: '2024-02-10',
     purpose: 'European Expansion',
     status: 'Planned',
     budget: 4000,
@@ -513,11 +513,11 @@ export const MOCK_APPLICATIONS: JobApplication[] = [
     cvUrl: SAMPLE_PDF_BASE64,
     reviews: [
       {
-         id: 'rev1',
-         interviewerEmail: 'admin@migoportal.com',
-         interviewerName: 'Alice Admin',
-         assignedDate: '2023-11-20',
-         status: 'Pending'
+        id: 'rev1',
+        interviewerEmail: 'admin@migoportal.com',
+        interviewerName: 'Alice Admin',
+        assignedDate: '2023-11-20',
+        status: 'Pending'
       }
     ]
   },
@@ -661,13 +661,13 @@ export const MOCK_SURVEY_RESPONSES: SurveyResponse[] = [
 export const MOCK_NOTIFICATIONS: AppNotification[] = Array.from({ length: 45 }, (_, i) => ({
   id: `notif-${i}`,
   title: i % 4 === 0 ? 'Expense Approved' : i % 4 === 1 ? 'New Survey Available' : i % 4 === 2 ? 'Meeting Reminder' : 'System Update',
-  message: i % 4 === 0 
-    ? `Your expense report #${1000 + i} has been approved by finance.` 
-    : i % 4 === 1 
-    ? 'A new quarterly engagement survey is available for you to complete.'
-    : i % 4 === 2
-    ? 'Don\'t forget your team sync scheduled for tomorrow at 10:00 AM.'
-    : 'System maintenance is scheduled for this weekend.',
+  message: i % 4 === 0
+    ? `Your expense report #${1000 + i} has been approved by finance.`
+    : i % 4 === 1
+      ? 'A new quarterly engagement survey is available for you to complete.'
+      : i % 4 === 2
+        ? 'Don\'t forget your team sync scheduled for tomorrow at 10:00 AM.'
+        : 'System maintenance is scheduled for this weekend.',
   date: new Date(Date.now() - i * 86400000).toISOString().split('T')[0],
   type: i % 4 === 0 ? 'success' : i % 4 === 1 ? 'info' : i % 4 === 2 ? 'warning' : 'alert',
   isRead: i > 5
@@ -769,6 +769,60 @@ export const MOCK_GOALS: Goal[] = [
     dueDate: '2023-11-30',
     userId: 'charlie@migoportal.com',
     userName: 'Charlie Designer',
+    companyId: 'comp_123'
+  }
+];
+
+export const MOCK_PAYROLL_RUNS: PayrollRun[] = [
+  {
+    id: 'pr1',
+    period: 'November 2023',
+    runDate: '2023-11-25',
+    totalEmployees: 3,
+    totalGross: 32000.00,
+    totalNet: 24500.00,
+    status: 'Completed',
+    companyId: 'comp_123'
+  },
+  {
+    id: 'pr2',
+    period: 'December 2023',
+    runDate: '2023-12-25',
+    totalEmployees: 3,
+    totalGross: 35000.00,
+    totalNet: 27000.00,
+    status: 'Processing',
+    companyId: 'comp_123'
+  }
+];
+
+export const MOCK_PAY_STUBS: PayStub[] = [
+  {
+    id: 'ps1',
+    userId: 'bob@migoportal.com',
+    userName: 'Bob Employee',
+    period: 'November 2023',
+    payDate: '2023-11-25',
+    grossPay: 10416.67,
+    netPay: 7850.00,
+    deductions: [{ type: 'Health Insurance', amount: 200 }, { type: '401k', amount: 500 }],
+    taxes: [{ type: 'Federal Tax', amount: 1560 }, { type: 'State Tax', amount: 306.67 }],
+    currency: 'USD',
+    status: 'Published',
+    companyId: 'comp_123'
+  },
+  {
+    id: 'ps2',
+    userId: 'admin@migoportal.com',
+    userName: 'Alice Admin',
+    period: 'November 2023',
+    payDate: '2023-11-25',
+    grossPay: 12083.33,
+    netPay: 9100.00,
+    deductions: [{ type: 'Health Insurance', amount: 200 }, { type: '401k', amount: 600 }],
+    taxes: [{ type: 'Federal Tax', amount: 1812.50 }, { type: 'State Tax', amount: 370.83 }],
+    currency: 'USD',
+    status: 'Published',
     companyId: 'comp_123'
   }
 ];

@@ -149,7 +149,7 @@ export interface UserProfile {
   companyId?: string; // Link to the company
   budget?: Budget;
   status?: 'Active' | 'Inactive' | 'Pending';
-  
+
   // New Employment Fields
   employment?: EmploymentDetails;
   compensation?: Compensation;
@@ -219,7 +219,7 @@ export interface Job {
   postedDate: string;
   status: 'Open' | 'Closed';
   companyId: string;
-  
+
   // Expanded fields
   companyName?: string;
   logoUrl?: string;
@@ -316,10 +316,10 @@ export interface EmployeeReview {
   employeeEmail: string;
   managerName: string;
   managerEmail: string;
-  
+
   // Unstructured Fallback
   selfReview?: string;
-  
+
   // Structured Questionnaire
   templateId?: string;
   responses?: {
@@ -330,11 +330,11 @@ export interface EmployeeReview {
 
   selfRating?: number; // 1-5
   submittedAt?: string;
-  
+
   managerReview?: string; // Overall summary
   managerRating?: number; // 1-5
   completedAt?: string;
-  
+
   status: 'Pending Self' | 'Pending Manager' | 'Completed';
   companyId: string;
 }
@@ -352,6 +352,32 @@ export interface Goal {
   companyId: string;
 }
 
+export interface PayStub {
+  id: string;
+  userId: string;
+  userName: string;
+  period: string; // e.g., "October 2023"
+  payDate: string;
+  grossPay: number;
+  netPay: number;
+  deductions: { type: string; amount: number }[];
+  taxes: { type: string; amount: number }[];
+  currency: string;
+  status: 'Published' | 'Draft';
+  companyId: string;
+}
+
+export interface PayrollRun {
+  id: string;
+  period: string;
+  runDate: string;
+  totalEmployees: number;
+  totalGross: number;
+  totalNet: number;
+  status: 'Completed' | 'Processing' | 'Draft';
+  companyId: string;
+}
+
 export interface AppNotification {
   id: string;
   title: string;
@@ -361,7 +387,7 @@ export interface AppNotification {
   isRead: boolean;
 }
 
-export type ViewState = 'dashboard' | 'expenses' | 'trips' | 'settings' | 'team' | 'my-team' | 'time-absence' | 'jobs' | 'recognition' | 'surveys' | 'recruitment' | 'company-settings' | 'notifications' | 'reviews' | 'goals' | 'migo-chat' | 'migo-live' | 'assistant';
+export type ViewState = 'dashboard' | 'expenses' | 'trips' | 'settings' | 'team' | 'my-team' | 'time-absence' | 'attendance' | 'absence' | 'jobs' | 'recognition' | 'surveys' | 'recruitment' | 'company-settings' | 'notifications' | 'reviews' | 'goals' | 'migo-chat' | 'migo-live' | 'assistant' | 'payroll';
 
 // --- Gemini / AI Types ---
 
@@ -385,7 +411,7 @@ export interface GroundingChunk {
     title?: string;
     placeAnswerSources?: {
       reviewSnippets?: {
-         url: string;
+        url: string;
       }[]
     }
   };

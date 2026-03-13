@@ -1,6 +1,5 @@
 import React, { useState, useRef } from 'react';
 import { Camera, Upload, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
-import { parseReceiptImage } from '../services/geminiService';
 import { ReceiptAnalysisResult, ExpenseCategory } from '../types';
 
 interface ReceiptUploaderProps {
@@ -24,8 +23,18 @@ const ReceiptUploader: React.FC<ReceiptUploaderProps> = ({ onAnalysisComplete })
       setError(null);
 
       try {
-        // Call Gemini Service
-        const analysis = await parseReceiptImage(base64String);
+        // Receipt analysis — AI integration removed; prompts manual entry
+        const analysis = await (async (): Promise<any> => ({
+          merchant: 'Manual Entry Required',
+          amount: 0,
+          currency: 'USD',
+          date: new Date().toISOString().split('T')[0],
+          category: 'Other',
+          description: 'Please enter receipt details manually.',
+          confidence: 0,
+          taxDeductibility: 'No',
+          taxReasoning: 'Enter details manually.'
+        }))();
         onAnalysisComplete(analysis, base64String);
       } catch (err) {
         setError("Failed to analyze receipt. Please try again or enter manually.");
@@ -47,8 +56,8 @@ const ReceiptUploader: React.FC<ReceiptUploaderProps> = ({ onAnalysisComplete })
         ref={fileInputRef}
         onChange={handleFileChange}
       />
-      
-      <div 
+
+      <div
         onClick={!isAnalyzing ? triggerUpload : undefined}
         className={`
           border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200
@@ -58,7 +67,7 @@ const ReceiptUploader: React.FC<ReceiptUploaderProps> = ({ onAnalysisComplete })
         {isAnalyzing ? (
           <div className="flex flex-col items-center animate-pulse">
             <Loader2 className="w-10 h-10 text-indigo-600 dark:text-indigo-400 animate-spin mb-3" />
-            <p className="text-indigo-800 dark:text-indigo-300 font-medium">Gemini is analyzing your receipt...</p>
+            <p className="text-indigo-800 dark:text-indigo-300 font-medium">Analyzing your receipt...</p>
             <p className="text-indigo-500 dark:text-indigo-400 text-sm mt-1">Extracting merchant, date, and amount.</p>
           </div>
         ) : (
