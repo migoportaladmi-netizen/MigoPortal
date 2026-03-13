@@ -110,7 +110,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onBack, availableUsers
                         {isSignUp ? 'Create Account' : 'Welcome Back'}
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm">
-                        {isSignUp ? 'Join MigoPortal for smart HR management' : 'Sign in to manage your LLC HR, Recruitment & Payroll Platform'}
+                        {isSignUp ? 'Join MigoPortal for smart HR management' : 'Sign in to manage your HR, Recruitment & Payroll Platform'}
                     </p>
                 </div>
 
