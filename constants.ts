@@ -14,7 +14,7 @@ export const MOCK_COMPANY: Company = {
 export const MOCK_USERS: UserProfile[] = [
   {
     name: 'Alice Admin',
-    email: 'admin@migoportal.com',
+    email: 'wahed.aust@gmail.com',
     role: 'Administrator',
     phone: '555-0100',
     avatarInitials: 'AA',
@@ -51,7 +51,7 @@ export const MOCK_USERS: UserProfile[] = [
   },
   {
     name: 'Bob Employee',
-    email: 'bob@migoportal.com',
+    email: 'wahed.aust+1@gmail.com',
     role: 'User',
     phone: '555-0101',
     avatarInitials: 'BE',
@@ -66,7 +66,7 @@ export const MOCK_USERS: UserProfile[] = [
       department: 'Engineering',
       startDate: '2022-03-01',
       managerName: 'Alice Admin',
-      managerEmail: 'admin@migoportal.com',
+      managerEmail: 'wahed.aust@gmail.com',
       employmentType: 'Full-time',
       location: 'Remote'
     },
@@ -106,7 +106,7 @@ export const MOCK_USERS: UserProfile[] = [
       department: 'Product',
       startDate: '2023-01-15',
       managerName: 'Alice Admin',
-      managerEmail: 'admin@migoportal.com',
+      managerEmail: 'wahed.aust@gmail.com',
       employmentType: 'Full-time',
       location: 'Austin, TX'
     },
@@ -379,7 +379,7 @@ export const MOCK_TIME_ENTRIES: TimeEntry[] = [
     endTime: '17:00',
     description: 'Frontend Development',
     totalHours: 8,
-    userId: 'bob@migoportal.com',
+    userId: 'wahed.aust+1@gmail.com',
     userName: 'Bob Employee',
     companyId: 'comp_123',
     status: 'Approved'
@@ -391,7 +391,7 @@ export const MOCK_TIME_ENTRIES: TimeEntry[] = [
     endTime: '12:00',
     description: 'Client Meetings',
     totalHours: 3,
-    userId: 'bob@migoportal.com',
+    userId: 'wahed.aust+1@gmail.com',
     userName: 'Bob Employee',
     companyId: 'comp_123',
     status: 'Pending'
@@ -403,7 +403,7 @@ export const MOCK_TIME_ENTRIES: TimeEntry[] = [
     endTime: '18:00',
     description: 'Documentation',
     totalHours: 5,
-    userId: 'bob@migoportal.com',
+    userId: 'wahed.aust+1@gmail.com',
     userName: 'Bob Employee',
     companyId: 'comp_123',
     status: 'Pending'
@@ -415,7 +415,7 @@ export const MOCK_TIME_ENTRIES: TimeEntry[] = [
     endTime: '16:00',
     description: 'Management Review',
     totalHours: 6,
-    userId: 'admin@migoportal.com',
+    userId: 'wahed.aust@gmail.com',
     userName: 'Alice Admin',
     companyId: 'comp_123',
     status: 'Approved'
@@ -430,7 +430,7 @@ export const MOCK_ABSENCE_REQUESTS: AbsenceRequest[] = [
     type: AbsenceType.VACATION,
     reason: 'Christmas Holiday',
     status: 'Approved',
-    userId: 'bob@migoportal.com',
+    userId: 'wahed.aust+1@gmail.com',
     userName: 'Bob Employee',
     companyId: 'comp_123'
   },
@@ -441,7 +441,7 @@ export const MOCK_ABSENCE_REQUESTS: AbsenceRequest[] = [
     type: AbsenceType.SICK,
     reason: 'Doctor Appointment',
     status: 'Pending',
-    userId: 'bob@migoportal.com',
+    userId: 'wahed.aust+1@gmail.com',
     userName: 'Bob Employee',
     companyId: 'comp_123'
   },
@@ -452,7 +452,7 @@ export const MOCK_ABSENCE_REQUESTS: AbsenceRequest[] = [
     type: AbsenceType.PERSONAL,
     reason: 'Family event',
     status: 'Approved',
-    userId: 'admin@migoportal.com',
+    userId: 'wahed.aust@gmail.com',
     userName: 'Alice Admin',
     companyId: 'comp_123'
   }
@@ -505,7 +505,7 @@ export const MOCK_APPLICATIONS: JobApplication[] = [
     id: 'app1',
     jobId: 'job1',
     applicantName: 'Bob Employee',
-    applicantEmail: 'bob@migoportal.com',
+    applicantEmail: 'wahed.aust+1@gmail.com',
     appliedDate: '2023-11-16',
     status: 'Interview',
     companyId: 'comp_123',
@@ -514,7 +514,7 @@ export const MOCK_APPLICATIONS: JobApplication[] = [
     reviews: [
       {
         id: 'rev1',
-        interviewerEmail: 'admin@migoportal.com',
+        interviewerEmail: 'wahed.aust@gmail.com',
         interviewerName: 'Alice Admin',
         assignedDate: '2023-11-20',
         status: 'Pending'
@@ -563,10 +563,10 @@ export const MOCK_PRAISE: Praise[] = [
   {
     id: 'p1',
     fromUserName: 'Alice Admin',
-    fromUserEmail: 'admin@migoportal.com',
+    fromUserEmail: 'wahed.aust@gmail.com',
     fromUserInitials: 'AA',
     toUserName: 'Bob Employee',
-    toUserEmail: 'bob@migoportal.com',
+    toUserEmail: 'wahed.aust+1@gmail.com',
     toUserInitials: 'BE',
     message: 'Fantastic work on the Q4 sales presentation. Your insights were invaluable!',
     date: '2023-11-20',
@@ -576,7 +576,7 @@ export const MOCK_PRAISE: Praise[] = [
   {
     id: 'p2',
     fromUserName: 'Bob Employee',
-    fromUserEmail: 'bob@migoportal.com',
+    fromUserEmail: 'wahed.aust+1@gmail.com',
     fromUserInitials: 'BE',
     toUserName: 'Charlie Designer',
     toUserEmail: 'charlie@migoportal.com',
@@ -592,7 +592,7 @@ export const MOCK_PRAISE: Praise[] = [
     fromUserEmail: 'charlie@migoportal.com',
     fromUserInitials: 'CD',
     toUserName: 'Alice Admin',
-    toUserEmail: 'admin@migoportal.com',
+    toUserEmail: 'wahed.aust@gmail.com',
     toUserInitials: 'AA',
     message: 'Great job organizing the team retreat. It was a huge success.',
     date: '2023-11-22',
@@ -635,7 +635,7 @@ export const MOCK_SURVEY_RESPONSES: SurveyResponse[] = [
   {
     id: 'r1',
     surveyId: 's1',
-    userEmail: 'bob@migoportal.com',
+    userEmail: 'wahed.aust+1@gmail.com',
     submittedAt: '2023-11-15',
     answers: [
       { questionId: 'q1', value: 4 },
@@ -695,9 +695,9 @@ export const MOCK_REVIEWS: EmployeeReview[] = [
     id: 'rev1',
     period: '2023 Annual Review',
     employeeName: 'Bob Employee',
-    employeeEmail: 'bob@migoportal.com',
+    employeeEmail: 'wahed.aust+1@gmail.com',
     managerName: 'Alice Admin',
-    managerEmail: 'admin@migoportal.com',
+    managerEmail: 'wahed.aust@gmail.com',
     status: 'Pending Self',
     templateId: 'temp1',
     responses: ROLE_BASED_QUESTIONS['Software Engineer'].map(q => ({ question: q })),
@@ -707,9 +707,9 @@ export const MOCK_REVIEWS: EmployeeReview[] = [
     id: 'rev2',
     period: '2023 Mid-Year Review',
     employeeName: 'Bob Employee',
-    employeeEmail: 'bob@migoportal.com',
+    employeeEmail: 'wahed.aust+1@gmail.com',
     managerName: 'Alice Admin',
-    managerEmail: 'admin@migoportal.com',
+    managerEmail: 'wahed.aust@gmail.com',
     status: 'Completed',
     selfReview: 'I delivered the new frontend architecture ahead of schedule.',
     selfRating: 5,
@@ -725,7 +725,7 @@ export const MOCK_REVIEWS: EmployeeReview[] = [
     employeeName: 'Charlie Designer',
     employeeEmail: 'charlie@migoportal.com',
     managerName: 'Alice Admin',
-    managerEmail: 'admin@migoportal.com',
+    managerEmail: 'wahed.aust@gmail.com',
     status: 'Pending Manager',
     selfReview: 'Improved the design system and shipped 3 major features.',
     selfRating: 4,
@@ -743,7 +743,7 @@ export const MOCK_GOALS: Goal[] = [
     visibility: 'Public',
     status: 'In Progress',
     dueDate: '2023-12-31',
-    userId: 'admin@migoportal.com',
+    userId: 'wahed.aust@gmail.com',
     userName: 'Alice Admin',
     companyId: 'comp_123'
   },
@@ -755,7 +755,7 @@ export const MOCK_GOALS: Goal[] = [
     visibility: 'Manager',
     status: 'In Progress',
     dueDate: '2023-12-15',
-    userId: 'bob@migoportal.com',
+    userId: 'wahed.aust+1@gmail.com',
     userName: 'Bob Employee',
     companyId: 'comp_123'
   },
@@ -799,7 +799,7 @@ export const MOCK_PAYROLL_RUNS: PayrollRun[] = [
 export const MOCK_PAY_STUBS: PayStub[] = [
   {
     id: 'ps1',
-    userId: 'bob@migoportal.com',
+    userId: 'wahed.aust+1@gmail.com',
     userName: 'Bob Employee',
     period: 'November 2023',
     payDate: '2023-11-25',
@@ -813,7 +813,7 @@ export const MOCK_PAY_STUBS: PayStub[] = [
   },
   {
     id: 'ps2',
-    userId: 'admin@migoportal.com',
+    userId: 'wahed.aust@gmail.com',
     userName: 'Alice Admin',
     period: 'November 2023',
     payDate: '2023-11-25',

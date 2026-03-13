@@ -45,17 +45,35 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onBack, availableUsers
                 }
             }
 
+            if (!isSignUp && formData.password !== 'Test123#') {
+                alert("Invalid email or password");
+                setIsLoading(false);
+                return;
+            }
+
+            const foundUser = availableUsers.find(u => u.email === formData.email);
+            if (!isSignUp && !foundUser) {
+                alert("Invalid email or password");
+                setIsLoading(false);
+                return;
+            }
+
             const userProfile: UserProfile = {
-                name: isSignUp ? formData.name : 'John Doe',
+                name: isSignUp ? formData.name : (foundUser ? foundUser.name : 'Unknown User'),
                 email: formData.email,
-                role: isSignUp ? formData.role : 'Administrator',
-                phone: '',
-                avatarInitials: initials.toUpperCase(),
-                companyId: isSignUp ? assignedCompanyId : availableUsers.find(u => u.email === formData.email)?.companyId,
-                status: 'Active'
+                role: isSignUp ? formData.role : (foundUser ? foundUser.role : 'Administrator'),
+                phone: foundUser ? foundUser.phone : '',
+                avatarInitials: isSignUp ? initials.toUpperCase() : (foundUser ? foundUser.avatarInitials : 'U'),
+                companyId: isSignUp ? assignedCompanyId : (foundUser?.companyId),
+                status: 'Active',
+                employment: foundUser?.employment,
+                budget: foundUser?.budget,
+                compensation: foundUser?.compensation,
+                emergencyContact: foundUser?.emergencyContact,
+                documents: foundUser?.documents || []
             };
 
-            onLogin(userProfile);
+            onLogin(isSignUp ? userProfile : (foundUser as UserProfile));
             setIsLoading(false);
         }, 1500);
     };
@@ -92,27 +110,11 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onBack, availableUsers
                         {isSignUp ? 'Create Account' : 'Welcome Back'}
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm">
-                        {isSignUp ? 'Join MigoPortal for smart expense management' : 'Sign in to manage your LLC travel & expenses'}
+                        {isSignUp ? 'Join MigoPortal for smart HR management' : 'Sign in to manage your LLC HR, Recruitment & Payroll Platform'}
                     </p>
                 </div>
 
-                <div className="px-8 mt-6">
-                    <p className="text-xs font-semibold text-slate-400 text-center mb-3 uppercase tracking-wider">Quick Demo Login</p>
-                    <div className="grid grid-cols-2 gap-3">
-                        <button onClick={() => handleQuickLogin('admin@migoportal.com')} className="p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900 rounded-xl text-xs font-bold hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors flex flex-col items-center">
-                            <UserCog size={20} className="mb-1" />
-                            Login as Admin
-                        </button>
-                        <button onClick={() => handleQuickLogin('bob@migoportal.com')} className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-900 rounded-xl text-xs font-bold hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors flex flex-col items-center">
-                            <UserCheck size={20} className="mb-1" />
-                            Login as User
-                        </button>
-                    </div>
-                    <div className="relative my-6">
-                        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200 dark:border-slate-800"></div></div>
-                        <div className="relative flex justify-center text-xs uppercase"><span className="bg-white dark:bg-slate-900 px-2 text-slate-400">Or continue with email</span></div>
-                    </div>
-                </div>
+
 
                 <form onSubmit={handleSubmit} className="px-8 pb-8 space-y-5">
                     {isSignUp && (
