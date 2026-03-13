@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { UserProfile, Company } from '../../types';
 import { MOCK_USERS } from '../../constants';
+import PaymentGate from './PaymentGate';
 
 interface AuthScreenProps {
     onLogin: (user: UserProfile) => void;
@@ -19,19 +20,32 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onBack, availableUsers
     const [isLoading, setIsLoading] = useState(false);
     const [inviteCode, setInviteCode] = useState('');
     const [formData, setFormData] = useState({
-        name: '',
+        firstName: '',
+        lastName: '',
+        gender: '',
         email: '',
         password: '',
-        role: 'User',
+        role: 'Employee',
     });
+    const [showPaymentGate, setShowPaymentGate] = useState(false);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
 
         setTimeout(() => {
-            const parts = (isSignUp ? formData.name : 'John Doe').split(' ');
-            const initials = parts.length > 1 ? parts[0][0] + parts[1][0] : parts[0][0];
+            const foundUser = availableUsers.find(u => u.email === formData.email);
+
+            if (!isSignUp && !foundUser) {
+                alert("Invalid email or password");
+                setIsLoading(false);
+                return;
+            }
+
+            const fullName = isSignUp ? `${formData.firstName} ${formData.lastName}`.trim() : (foundUser ? foundUser.name : 'Unknown User');
+            const initials = isSignUp
+                ? (formData.firstName && formData.lastName ? formData.firstName[0] + formData.lastName[0] : (formData.firstName ? formData.firstName[0] : 'U'))
+                : (foundUser ? foundUser.avatarInitials : 'U');
 
             let assignedCompanyId: string | undefined = undefined;
 
@@ -43,6 +57,8 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onBack, availableUsers
                     setIsLoading(false);
                     return;
                 }
+            } else {
+                assignedCompanyId = foundUser?.companyId;
             }
 
             if (!isSignUp && formData.password !== 'Test123#') {
@@ -51,20 +67,19 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onBack, availableUsers
                 return;
             }
 
-            const foundUser = availableUsers.find(u => u.email === formData.email);
-            if (!isSignUp && !foundUser) {
-                alert("Invalid email or password");
+            if (isSignUp && formData.role === 'Administrator' && !showPaymentGate) {
                 setIsLoading(false);
+                setShowPaymentGate(true); // Show payment gate before completing admin signup
                 return;
             }
 
             const userProfile: UserProfile = {
-                name: isSignUp ? formData.name : (foundUser ? foundUser.name : 'Unknown User'),
+                name: isSignUp ? fullName : (foundUser ? foundUser.name : 'Unknown User'),
                 email: formData.email,
                 role: isSignUp ? formData.role : (foundUser ? foundUser.role : 'Administrator'),
                 phone: foundUser ? foundUser.phone : '',
                 avatarInitials: isSignUp ? initials.toUpperCase() : (foundUser ? foundUser.avatarInitials : 'U'),
-                companyId: isSignUp ? assignedCompanyId : (foundUser?.companyId),
+                companyId: assignedCompanyId,
                 status: 'Active',
                 employment: foundUser?.employment,
                 budget: foundUser?.budget,
@@ -93,152 +108,195 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onBack, availableUsers
     };
 
     return (
-        <div className="min-h-dvh flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4 transition-colors duration-300">
+        <div className="min-h-dvh flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4 transition-colors duration-300 relative">
             <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-fade-in relative">
-                <button
-                    onClick={onBack}
-                    className="absolute top-4 left-4 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-                >
-                    <ArrowLeft size={20} />
-                </button>
-
-                <div className="p-8 pb-0 text-center">
-                    <div className="w-16 h-16 bg-indigo-600 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-none mb-6">
-                        <span className="text-white text-3xl font-bold">M</span>
-                    </div>
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-                        {isSignUp ? 'Create Account' : 'Welcome Back'}
-                    </h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm">
-                        {isSignUp ? 'Join MigoPortal for smart HR management' : 'Sign in to manage your HR, Recruitment & Payroll Platform'}
-                    </p>
-                </div>
-
-
-
-                <form onSubmit={handleSubmit} className="px-8 pb-8 space-y-5">
-                    {isSignUp && (
-                        <div className="space-y-2 animate-fade-in">
-                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Company Invite Code (Optional)</label>
-                            <div className="relative">
-                                <Building2 size={18} className="absolute left-3 top-3 text-slate-400" />
-                                <input
-                                    type="text"
-                                    placeholder="Enter code (e.g. TECH-2024)"
-                                    className="w-full pl-10 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-white"
-                                    value={inviteCode}
-                                    onChange={e => setInviteCode(e.target.value)}
-                                />
-                            </div>
-                            <p className="text-xs text-slate-400">Use code <b>{company.inviteCode}</b> to join {company.name}</p>
-                        </div>
-                    )}
-
-                    {isSignUp && (
-                        <div className="space-y-2 animate-fade-in">
-                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Full Name</label>
-                            <div className="relative">
-                                <User size={18} className="absolute left-3 top-3 text-slate-400" />
-                                <input
-                                    type="text"
-                                    required
-                                    placeholder="John Doe"
-                                    className="w-full pl-10 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-white"
-                                    value={formData.name}
-                                    onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Email Address</label>
-                        <div className="relative">
-                            <Mail size={18} className="absolute left-3 top-3 text-slate-400" />
-                            <input
-                                type="email"
-                                required
-                                placeholder="you@company.com"
-                                className="w-full pl-10 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-white"
-                                value={formData.email}
-                                onChange={e => setFormData({ ...formData, email: e.target.value })}
-                            />
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Password</label>
-                        <div className="relative">
-                            <Lock size={18} className="absolute left-3 top-3 text-slate-400" />
-                            <input
-                                type={showPassword ? "text" : "password"}
-                                required
-                                placeholder="••••••••"
-                                className="w-full pl-10 pr-10 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-white"
-                                value={formData.password}
-                                onChange={e => setFormData({ ...formData, password: e.target.value })}
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                            >
-                                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                            </button>
-                        </div>
-                    </div>
-
-                    {isSignUp && (
-                        <div className="space-y-2 animate-fade-in">
-                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Account Type</label>
-                            <div className="grid grid-cols-2 gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData({ ...formData, role: 'User' })}
-                                    className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-2 transition-all
-                      ${formData.role === 'User'
-                                            ? 'bg-indigo-50 border-indigo-500 text-indigo-700 dark:bg-indigo-900/20 dark:border-indigo-400 dark:text-indigo-300'
-                                            : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'}
-                    `}
-                                >
-                                    <User size={24} />
-                                    <span className="text-xs font-semibold">Normal User</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData({ ...formData, role: 'Administrator' })}
-                                    className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-2 transition-all
-                      ${formData.role === 'Administrator'
-                                            ? 'bg-indigo-50 border-indigo-500 text-indigo-700 dark:bg-indigo-900/20 dark:border-indigo-400 dark:text-indigo-300'
-                                            : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'}
-                    `}
-                                >
-                                    <ShieldCheck size={24} />
-                                    <span className="text-xs font-semibold">Administrator</span>
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    <button
-                        type="submit"
-                        disabled={isLoading}
-                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 transition-all flex justify-center items-center"
-                    >
-                        {isLoading ? <Loader2 className="animate-spin" /> : (isSignUp ? 'Create Account' : 'Sign In')}
-                    </button>
-
-                    <p className="text-center text-sm text-slate-500 dark:text-slate-400">
-                        {isSignUp ? 'Already have an account?' : 'Don\'t have an account?'}
+                {showPaymentGate ? (
+                    <PaymentGate
+                        onCancel={() => setShowPaymentGate(false)}
+                        onPaymentSuccess={() => {
+                            setShowPaymentGate(false);
+                            // Complete the signup process after successful payment
+                            handleSubmit({ preventDefault: () => { } } as React.FormEvent);
+                        }}
+                    />
+                ) : (
+                    <>
                         <button
-                            type="button"
-                            onClick={() => setIsSignUp(!isSignUp)}
-                            className="ml-2 text-indigo-600 dark:text-indigo-400 font-semibold hover:underline"
+                            onClick={onBack}
+                            className="absolute top-4 left-4 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
                         >
-                            {isSignUp ? 'Log in' : 'Sign up'}
+                            <ArrowLeft size={20} />
                         </button>
-                    </p>
-                </form>
+
+                        <div className="p-8 pb-0 text-center">
+                            <button
+                                onClick={onBack}
+                                className="w-16 h-16 bg-indigo-600 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-none mb-6 hover:opacity-90 transition-opacity"
+                            >
+                                <span className="text-white text-3xl font-bold">M</span>
+                            </button>
+                            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+                                {isSignUp ? 'Create Account' : 'Welcome Back'}
+                            </h1>
+                            <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm">
+                                {isSignUp ? 'Join MigoPortal for smart HR, Recruitment and Payroll management' : 'Sign in to manage your HR, Recruitment & Payroll Platform'}
+                            </p>
+                        </div>
+
+
+
+                        <form onSubmit={handleSubmit} className="px-8 pb-8 space-y-5">
+                            {isSignUp && formData.role === 'Employee' && (
+                                <div className="space-y-2 animate-fade-in">
+                                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Company Invite Code <span className="text-slate-400 text-xs font-normal ml-1">(Optional)</span></label>
+                                    <div className="relative">
+                                        <Building2 size={18} className="absolute left-3 top-3 text-slate-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="Enter code (e.g. TECH-2024)"
+                                            className="w-full pl-10 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-white"
+                                            value={inviteCode}
+                                            onChange={e => setInviteCode(e.target.value)}
+                                        />
+                                    </div>
+                                    <p className="text-xs text-slate-400">Ask your admin for the code</p>
+                                </div>
+                            )}
+
+                            {isSignUp && (
+                                <>
+                                    <div className="grid grid-cols-2 gap-4 animate-fade-in">
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">First Name</label>
+                                            <input
+                                                type="text"
+                                                required
+                                                placeholder="John"
+                                                className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-white"
+                                                value={formData.firstName}
+                                                onChange={e => setFormData({ ...formData, firstName: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Last Name</label>
+                                            <input
+                                                type="text"
+                                                required
+                                                placeholder="Doe"
+                                                className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-white"
+                                                value={formData.lastName}
+                                                onChange={e => setFormData({ ...formData, lastName: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2 animate-fade-in">
+                                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Gender</label>
+                                        <select
+                                            required
+                                            className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-white"
+                                            value={formData.gender}
+                                            onChange={e => setFormData({ ...formData, gender: e.target.value })}
+                                        >
+                                            <option value="" disabled>Select Gender</option>
+                                            <option value="Male">Male</option>
+                                            <option value="Female">Female</option>
+                                            <option value="Other">Other</option>
+                                            <option value="Prefer not to say">Prefer not to say</option>
+                                        </select>
+                                    </div>
+                                </>
+                            )}
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Email Address</label>
+                                <div className="relative">
+                                    <Mail size={18} className="absolute left-3 top-3 text-slate-400" />
+                                    <input
+                                        type="email"
+                                        required
+                                        placeholder="you@company.com"
+                                        className="w-full pl-10 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-white"
+                                        value={formData.email}
+                                        onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Password</label>
+                                <div className="relative">
+                                    <Lock size={18} className="absolute left-3 top-3 text-slate-400" />
+                                    <input
+                                        type={showPassword ? "text" : "password"}
+                                        required
+                                        placeholder="••••••••"
+                                        className="w-full pl-10 pr-10 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-white"
+                                        value={formData.password}
+                                        onChange={e => setFormData({ ...formData, password: e.target.value })}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                                    >
+                                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {isSignUp && (
+                                <div className="space-y-2 animate-fade-in">
+                                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Account Type</label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, role: 'Employee' })}
+                                            className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-2 transition-all
+                      ${formData.role === 'Employee'
+                                                    ? 'bg-indigo-50 border-indigo-500 text-indigo-700 dark:bg-indigo-900/20 dark:border-indigo-400 dark:text-indigo-300'
+                                                    : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'}
+                    `}
+                                        >
+                                            <User size={24} />
+                                            <span className="text-xs font-semibold">Employee</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, role: 'Administrator' })}
+                                            className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-2 transition-all
+                      ${formData.role === 'Administrator'
+                                                    ? 'bg-indigo-50 border-indigo-500 text-indigo-700 dark:bg-indigo-900/20 dark:border-indigo-400 dark:text-indigo-300'
+                                                    : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'}
+                    `}
+                                        >
+                                            <ShieldCheck size={24} />
+                                            <span className="text-xs font-semibold">Administrator</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={isLoading}
+                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 transition-all flex justify-center items-center"
+                            >
+                                {isLoading ? <Loader2 className="animate-spin" /> : (isSignUp ? 'Create Account' : 'Sign In')}
+                            </button>
+
+                            <p className="text-center text-sm text-slate-500 dark:text-slate-400">
+                                {isSignUp ? 'Already have an account?' : 'Don\'t have an account?'}
+                                <button
+                                    type="button"
+                                    onClick={() => setIsSignUp(!isSignUp)}
+                                    className="ml-2 text-indigo-600 dark:text-indigo-400 font-semibold hover:underline"
+                                >
+                                    {isSignUp ? 'Log in' : 'Sign up'}
+                                </button>
+                            </p>
+                        </form>
+                    </>
+                )}
             </div>
         </div>
     );
