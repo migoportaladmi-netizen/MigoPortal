@@ -35,14 +35,14 @@ const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentSuccess, onCancel })
                 </div>
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Admin Subscription</h2>
                 <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm">
-                    Activate your workspace and add unlimited employees for $6.99/user/month.
+                    Activate your workspace. Startup plan includes 1 Admin + 1 Employee minimum.
                 </p>
             </div>
 
             <div className="mt-8 bg-slate-50 dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
                 <div className="flex justify-between items-center mb-4 pb-4 border-b border-slate-200 dark:border-slate-700">
-                    <span className="text-slate-600 dark:text-slate-300 font-medium">Platform Fee</span>
-                    <span className="text-slate-900 dark:text-white font-bold">$6.99 / mo</span>
+                    <span className="text-slate-600 dark:text-slate-300 font-medium">Starter Plan (2 Users)</span>
+                    <span className="text-slate-900 dark:text-white font-bold">$13.98 / mo</span>
                 </div>
                 <ul className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
                     <li className="flex items-center gap-2"><CheckCircle2 size={16} className="text-emerald-500" /> Unlimited Employees</li>

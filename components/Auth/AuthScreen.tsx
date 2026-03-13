@@ -5,6 +5,7 @@ import {
 import { UserProfile, Company } from '../../types';
 import { MOCK_USERS } from '../../constants';
 import PaymentGate from './PaymentGate';
+import Onboarding from './Onboarding';
 
 interface AuthScreenProps {
     onLogin: (user: UserProfile) => void;
@@ -28,6 +29,8 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onBack, availableUsers
         role: 'Employee',
     });
     const [showPaymentGate, setShowPaymentGate] = useState(false);
+    const [showOnboarding, setShowOnboarding] = useState(false);
+    const [pendingAdminProfile, setPendingAdminProfile] = useState<any>(null);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -67,7 +70,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onBack, availableUsers
                 return;
             }
 
-            if (isSignUp && formData.role === 'Administrator' && !showPaymentGate) {
+            if (isSignUp && formData.role === 'Administrator' && !showPaymentGate && !showOnboarding) {
                 setIsLoading(false);
                 setShowPaymentGate(true); // Show payment gate before completing admin signup
                 return;
@@ -87,6 +90,12 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onBack, availableUsers
                 emergencyContact: foundUser?.emergencyContact,
                 documents: foundUser?.documents || []
             };
+
+            if (isSignUp && formData.role === 'Administrator' && !showOnboarding) {
+                setPendingAdminProfile(userProfile);
+                setShowOnboarding(true);
+                return;
+            }
 
             onLogin(isSignUp ? userProfile : (foundUser as UserProfile));
             setIsLoading(false);
@@ -115,8 +124,20 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onBack, availableUsers
                         onCancel={() => setShowPaymentGate(false)}
                         onPaymentSuccess={() => {
                             setShowPaymentGate(false);
-                            // Complete the signup process after successful payment
+                            // Proceed to onboarding
                             handleSubmit({ preventDefault: () => { } } as React.FormEvent);
+                        }}
+                    />
+                ) : showOnboarding ? (
+                    <Onboarding
+                        onComplete={(companyData) => {
+                            // Collect onboarding data and complete login
+                            const finalProfile = {
+                                ...pendingAdminProfile,
+                                companyId: companyData.id,
+                                onboardingData: companyData
+                            };
+                            onLogin(finalProfile);
                         }}
                     />
                 ) : (
