@@ -139,10 +139,12 @@ export default function App() {
                         <CalendarDays size={20} />
                         <span className="font-medium">Absence</span>
                     </button>
-                    <button onClick={() => { setView('payroll'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${view === 'payroll' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                        <DollarSign size={20} />
-                        <span className="font-medium">Payroll</span>
-                    </button>
+                    {user.role === 'Administrator' && (
+                        <button onClick={() => { setView('payroll'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${view === 'payroll' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                            <DollarSign size={20} />
+                            <span className="font-medium">Payroll</span>
+                        </button>
+                    )}
                     <button onClick={() => { setView('my-team'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${view === 'my-team' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
                         <Users size={20} />
                         <span className="font-medium">My Team</span>
@@ -250,7 +252,8 @@ export default function App() {
                         {view === 'team' && <ManageTeam {...appProps} />}
                         {view === 'company-settings' && <CompanySettings {...appProps} />}
                         {view === 'settings' && <SettingsView {...appProps} />}
-                        {view === 'payroll' && <Payroll {...appProps} />}
+                        {view === 'payroll' && user.role === 'Administrator' && <Payroll {...appProps} />}
+                        {view === 'payroll' && user.role !== 'Administrator' && <Dashboard {...appProps} />}
                     </Suspense>
                 </main>
             </div>
