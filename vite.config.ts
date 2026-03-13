@@ -30,19 +30,14 @@ export default defineConfig(({ mode }) => {
           display: 'standalone',
           icons: [
             {
-              src: 'pwa-icon.png',
-              sizes: '512x512',
-              type: 'image/png'
+              src: 'icon.svg',
+              sizes: 'any',
+              type: 'image/svg+xml'
             },
             {
-              src: 'pwa-icon.png',
-              sizes: '192x192',
-              type: 'image/png'
-            },
-            {
-              src: 'maskable-icon.png',
+              src: 'icon.svg',
               sizes: '512x512',
-              type: 'image/png',
+              type: 'image/svg+xml',
               purpose: 'maskable'
             }
           ]

@@ -113,7 +113,7 @@ export default function App() {
             {/* Sidebar implementation */}
             <div className="flex flex-col h-full">
                 <div className="flex items-center gap-3 px-6 h-16 border-b border-slate-800">
-                    <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-900/50">M</div>
+                    <img src="/icon.svg" alt="Logo" className="w-8 h-8 rounded-lg shadow-sm" />
                     <span className="font-bold text-xl tracking-wide">MigoPortal</span>
                 </div>
 
@@ -850,8 +850,8 @@ export default function App() {
                                             type="button"
                                             onClick={() => modals.setNewPraise((p: any) => ({ ...p, category: cat }))}
                                             className={`px-4 py-2 rounded-xl border text-xs font-medium transition-all ${modals.newPraise.category === cat
-                                                    ? 'bg-pink-100 border-pink-200 text-pink-700 dark:bg-pink-900/40 dark:border-pink-800 dark:text-pink-300'
-                                                    : 'bg-slate-50 border-slate-100 text-slate-600 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400 hover:bg-slate-100'
+                                                ? 'bg-pink-100 border-pink-200 text-pink-700 dark:bg-pink-900/40 dark:border-pink-800 dark:text-pink-300'
+                                                : 'bg-slate-50 border-slate-100 text-slate-600 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400 hover:bg-slate-100'
                                                 }`}
                                         >
                                             {cat}

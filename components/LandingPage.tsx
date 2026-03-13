@@ -121,7 +121,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/30">M</div>
+              <img src="/icon.svg" alt="Logo" className="w-8 h-8 rounded-lg shadow-sm" />
               <span className="font-bold text-xl tracking-tight">MigoPortal</span>
             </div>
             <div className="hidden md:flex items-center space-x-8">
