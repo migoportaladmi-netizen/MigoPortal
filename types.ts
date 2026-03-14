@@ -171,6 +171,7 @@ export interface UserProfile {
   companySize?: string;
   benefits?: string[];
   location?: string;
+  gender?: string;
 }
 
 export type User = UserProfile;

@@ -178,7 +178,15 @@ export default function App() {
 
                     {user.role === 'Administrator' && (
                         <>
-                            <p className="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-6 mb-2">Admin</p>
+                            <button
+                                onClick={() => { setView('team'); setIsMobileMenuOpen(false); }}
+                                className="w-full text-left px-4 py-2 mt-6 mb-2 group transition-colors"
+                            >
+                                <p className={`text-xs font-semibold uppercase tracking-wider transition-colors ${(view === 'team' || view === 'company-settings')
+                                        ? 'text-indigo-500'
+                                        : 'text-slate-500 group-hover:text-slate-300'
+                                    }`}>Admin</p>
+                            </button>
                             <button onClick={() => { setView('team'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${view === 'team' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
                                 <UserCog size={20} />
                                 <span className="font-medium">Manage Team</span>

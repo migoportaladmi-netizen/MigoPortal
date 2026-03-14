@@ -22,23 +22,26 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        console.log("Onboarding: handleSubmit triggered", formData);
         setIsLoading(true);
 
         setTimeout(() => {
             const inviteCode = generateInviteCode(formData.name);
-            onComplete({
+            const companyData = {
                 ...formData,
                 id: 'comp_' + Math.random().toString(36).substring(2, 9),
                 inviteCode,
                 subscriptionStatus: 'Active',
                 subscriptionPlan: 'Team Starter'
-            });
+            };
+            console.log("Onboarding: calling onComplete with", companyData);
+            onComplete(companyData);
             setIsLoading(false);
         }, 1500);
     };
 
     return (
-        <div className="absolute inset-0 bg-white dark:bg-slate-900 z-20 p-8 flex flex-col h-full overflow-y-auto">
+        <div className="bg-white dark:bg-slate-900 z-20 p-8 flex flex-col min-h-[600px] overflow-y-auto">
             <div className="text-center mb-8">
                 <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 rounded-2xl mx-auto flex items-center justify-center mb-4">
                     <Building2 size={32} />

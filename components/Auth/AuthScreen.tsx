@@ -4,7 +4,6 @@ import {
 } from 'lucide-react';
 import { UserProfile, Company } from '../../types';
 import { MOCK_USERS } from '../../constants';
-import PaymentGate from './PaymentGate';
 import Onboarding from './Onboarding';
 
 interface AuthScreenProps {
@@ -28,12 +27,12 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onBack, availableUsers
         password: '',
         role: 'Employee',
     });
-    const [showPaymentGate, setShowPaymentGate] = useState(false);
     const [showOnboarding, setShowOnboarding] = useState(false);
-    const [pendingAdminProfile, setPendingAdminProfile] = useState<any>(null);
+    const [pendingAdminProfile, setPendingAdminProfile] = useState<UserProfile | null>(null);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        console.log("AuthScreen: handleSubmit triggered", { isSignUp, role: formData.role, showOnboarding });
         setIsLoading(true);
 
         setTimeout(() => {
@@ -70,17 +69,14 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onBack, availableUsers
                 return;
             }
 
-            if (isSignUp && formData.role === 'Administrator' && !showPaymentGate && !showOnboarding) {
-                setIsLoading(false);
-                setShowPaymentGate(true); // Show payment gate before completing admin signup
-                return;
-            }
+
 
             const userProfile: UserProfile = {
                 name: isSignUp ? fullName : (foundUser ? foundUser.name : 'Unknown User'),
                 email: formData.email,
                 role: isSignUp ? formData.role : (foundUser ? foundUser.role : 'Administrator'),
                 phone: foundUser ? foundUser.phone : '',
+                gender: isSignUp ? formData.gender : (foundUser ? foundUser.gender : ''),
                 avatarInitials: isSignUp ? initials.toUpperCase() : (foundUser ? foundUser.avatarInitials : 'U'),
                 companyId: assignedCompanyId,
                 status: 'Active',
@@ -91,12 +87,17 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onBack, availableUsers
                 documents: foundUser?.documents || []
             };
 
+            console.log("AuthScreen: userProfile generated", userProfile);
+
             if (isSignUp && formData.role === 'Administrator' && !showOnboarding) {
+                console.log("AuthScreen: Proceeding to onboarding");
                 setPendingAdminProfile(userProfile);
                 setShowOnboarding(true);
+                setIsLoading(false);
                 return;
             }
 
+            console.log("AuthScreen: Completing login", userProfile);
             onLogin(isSignUp ? userProfile : (foundUser as UserProfile));
             setIsLoading(false);
         }, 1500);
@@ -118,25 +119,19 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onBack, availableUsers
 
     return (
         <div className="min-h-dvh flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4 transition-colors duration-300 relative">
-            <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-fade-in relative">
-                {showPaymentGate ? (
-                    <PaymentGate
-                        onCancel={() => setShowPaymentGate(false)}
-                        onPaymentSuccess={() => {
-                            setShowPaymentGate(false);
-                            // Proceed to onboarding
-                            handleSubmit({ preventDefault: () => { } } as React.FormEvent);
-                        }}
-                    />
-                ) : showOnboarding ? (
+            <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-fade-in relative min-h-[500px]">
+                {showOnboarding ? (
                     <Onboarding
                         onComplete={(companyData) => {
+                            console.log("AuthScreen: Onboarding complete", companyData);
                             // Collect onboarding data and complete login
                             const finalProfile = {
                                 ...pendingAdminProfile,
                                 companyId: companyData.id,
                                 onboardingData: companyData
-                            };
+                            } as UserProfile;
+
+                            console.log("AuthScreen: Calling onLogin with finalProfile", finalProfile);
                             onLogin(finalProfile);
                         }}
                     />

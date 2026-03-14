@@ -52,7 +52,7 @@ export const MOCK_USERS: UserProfile[] = [
   {
     name: 'Bob Employee',
     email: 'wahed.aust+1@gmail.com',
-    role: 'User',
+    role: 'Employee',
     phone: '555-0101',
     avatarInitials: 'BE',
     companyId: 'comp_123',
@@ -92,7 +92,7 @@ export const MOCK_USERS: UserProfile[] = [
   {
     name: 'Charlie Designer',
     email: 'charlie@migoportal.com',
-    role: 'User',
+    role: 'Employee',
     phone: '555-0102',
     avatarInitials: 'CD',
     companyId: 'comp_123',
