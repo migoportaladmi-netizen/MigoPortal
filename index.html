@@ -23,23 +23,7 @@
     // Polyfill process to prevent crashes on devices where it might be undefined
     window.process = window.process || { env: {} };
   </script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            slate: {
-              750: '#2d3748', // Custom dark shade if needed
-              850: '#1a202c',
-              950: '#020617',
-            }
-          }
-        }
-      }
-    }
-  </script>
+
 
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
